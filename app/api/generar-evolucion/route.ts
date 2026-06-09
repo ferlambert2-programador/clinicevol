@@ -3,6 +3,15 @@ import { NextRequest, NextResponse } from 'next/server'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
+const HEADERS: Record<string, string> = {
+  'evolucion-uti':    'EVOLUCIÓN DE TERAPIA INTENSIVA',
+  'evolucion-clinica':'EVOLUCIÓN DE CLÍNICA MÉDICA',
+  'ingreso-uti':      'INGRESO A TERAPIA INTENSIVA',
+  'ingreso-clinica':  'INGRESO A CLÍNICA MÉDICA',
+  'alta-uti':         'ALTA DE TERAPIA INTENSIVA',
+  'alta-clinica':     'ALTA DE CLÍNICA MÉDICA',
+}
+
 const PROMPTS: Record<string, string> = {
   'evolucion-uti': `Sos un médico intensivista escribiendo una evolución de guardia. Redactá en 3 a 5 oraciones, en prosa, como lo haría un médico real: mencioná solo los valores anormales o relevantes de pasada, sin explicarlos. No uses bullets, títulos ni lenguaje académico. Integrá el dictado, laboratorio, monitor y respirador si están disponibles.
 Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
@@ -124,7 +133,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: data.error?.message || 'Error API' }, { status: 500 })
     }
 
-    const texto = data.content?.[0]?.text || ''
+    const cuerpo = data.content?.[0]?.text || ''
+    const header = HEADERS[tipo] || ''
+    const texto = header ? `${header}\n${fecha}\n\n${cuerpo}` : cuerpo
     return NextResponse.json({ texto })
   } catch (err: any) {
     console.error('Error generar-evolucion:', err)
