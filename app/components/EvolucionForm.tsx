@@ -64,14 +64,38 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
       const res = await fetch('/api/transcribir', { method: 'POST', body: fd })
       const data = await res.json()
       if (data.texto) setDictado((prev) => prev + ' ' + data.texto)
-    } catch {
-      alert('Error al transcribir audio')
+      else setDictado((prev) => prev + '\n[Error al transcribir: ' + (data.error || 'respuesta inválida') + ']')
+    } catch (err) {
+      setDictado((prev) => prev + '\n[Error al transcribir: ' + (err instanceof Error ? err.message : 'error de conexión') + ']')
     }
   }
 
-  const agregarFotos = (files: FileList | null) => {
+  const comprimirImagen = (file: File): Promise<File> =>
+    new Promise((resolve) => {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const maxW = 1024
+        const scale = img.width > maxW ? maxW / img.width : 1
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(img.width * scale)
+        canvas.height = Math.round(img.height * scale)
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+        canvas.toBlob(
+          (blob) => resolve(blob ? new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }) : file),
+          'image/jpeg',
+          0.7,
+        )
+      }
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+      img.src = url
+    })
+
+  const agregarFotos = async (files: FileList | null) => {
     if (!files) return
-    setFotosExtra((prev) => [...prev, ...Array.from(files)])
+    const compressed = await Promise.all(Array.from(files).map(comprimirImagen))
+    setFotosExtra((prev) => [...prev, ...compressed])
   }
 
   const generarEvolucion = async () => {
