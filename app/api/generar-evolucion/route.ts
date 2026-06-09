@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     const pdfImagenes = fd.get('pdfImagenes') as File | null
 
     const fotos: File[] = []
-    for (const [key, val] of fd.entries()) {
+    for (const [key, val] of Array.from(fd.entries())) {
       if (key.startsWith('foto_') && val instanceof File) {
         fotos.push(val)
       }
