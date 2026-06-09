@@ -4,34 +4,22 @@ export const runtime = 'nodejs'
 export const maxDuration = 60
 
 const PROMPTS: Record<string, string> = {
-  'evolucion-uti': `Sos un médico especialista en Terapia Intensiva. Generá una evolución clínica narrativa, fluida y profesional para UTI. 
-Integrá todos los datos disponibles: laboratorio, parámetros del monitor hemodinámico, parámetros del respirador, informes de imágenes, y el dictado del médico.
-Escribí en prosa continua, sin bullets ni títulos. Incluí los valores alterados con su significado clínico.
+  'evolucion-uti': `Sos un médico intensivista escribiendo una evolución de guardia. Redactá en 3 a 5 oraciones, en prosa, como lo haría un médico real: mencioná solo los valores anormales o relevantes de pasada, sin explicarlos. No uses bullets, títulos ni lenguaje académico. Integrá el dictado, laboratorio, monitor y respirador si están disponibles.
 Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'evolucion-clinica': `Sos un médico clínico. Generá una evolución clínica narrativa, fluida y profesional para sala de clínica médica.
-Integrá todos los datos disponibles: laboratorio, informes de imágenes, y el dictado del médico.
-Escribí en prosa continua, sin bullets ni títulos. Destacá los valores alterados en contexto clínico.
+  'evolucion-clinica': `Sos un médico clínico escribiendo una evolución de sala. Redactá en 3 a 5 oraciones, en prosa, como lo haría un médico real: mencioná solo los valores anormales o relevantes de pasada, sin explicarlos. No uses bullets, títulos ni lenguaje académico. Integrá el dictado, laboratorio e imágenes si están disponibles.
 Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'ingreso-uti': `Sos un médico especialista en Terapia Intensiva. Generá una hoja de ingreso a UTI completa y narrativa.
-Incluí: motivo de ingreso, enfermedad actual, antecedentes relevantes, examen físico con datos positivos, laboratorio de ingreso, estudios complementarios, diagnóstico presuntivo y plan terapéutico inicial.
-Escribí en prosa narrativa continua que pueda copiarse campo a campo en una HC digital.
+  'ingreso-uti': `Sos un médico intensivista completando un ingreso a UTI. Redactá en prosa continua y concisa: motivo de ingreso, enfermedad actual, antecedentes relevantes, examen físico con hallazgos positivos, laboratorio e imágenes de ingreso, diagnóstico presuntivo y plan inicial. Mencioná solo los datos relevantes o anormales, sin explicaciones académicas.
 Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'alta-uti': `Sos un médico especialista en Terapia Intensiva. Generá el alta de UTI.
-Incluí: resumen de la internación, evolución durante la estadía en UTI, laboratorio de egreso, diagnósticos de egreso e indicaciones al alta.
-Escribí en prosa narrativa continua.
+  'alta-uti': `Sos un médico intensivista redactando el alta de UTI. Escribí en prosa concisa: resumen de la internación, evolución, laboratorio de egreso, diagnósticos y plan al alta. Solo los datos relevantes, sin explicaciones.
 Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'ingreso-clinica': `Sos un médico clínico. Generá una hoja de ingreso a clínica médica completa y narrativa.
-Incluí: motivo de ingreso, enfermedad actual, antecedentes patológicos y quirúrgicos relevantes, examen físico, estudios complementarios, diagnóstico presuntivo y plan terapéutico inicial.
-Escribí en prosa narrativa continua.
+  'ingreso-clinica': `Sos un médico clínico completando un ingreso a sala. Redactá en prosa continua y concisa: motivo de ingreso, enfermedad actual, antecedentes relevantes, examen físico con hallazgos positivos, estudios complementarios, diagnóstico presuntivo y plan inicial. Solo los datos relevantes o anormales, sin explicaciones académicas.
 Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'alta-clinica': `Sos un médico clínico. Generá el alta de clínica médica.
-Incluí: resumen de la internación, evolución, laboratorio de egreso, diagnósticos de egreso e indicaciones al alta con medicación detallada.
-Escribí en prosa narrativa continua.
+  'alta-clinica': `Sos un médico clínico redactando el alta de sala. Escribí en prosa concisa: resumen de la internación, evolución, laboratorio de egreso, diagnósticos e indicaciones al alta con medicación. Solo los datos relevantes, sin explicaciones.
 Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 }
 
