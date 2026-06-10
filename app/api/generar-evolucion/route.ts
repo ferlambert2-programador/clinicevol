@@ -1,283 +1,123 @@
-'use client'
+import { NextRequest, NextResponse } from 'next/server'
 
-import { useState, useRef } from 'react'
-import type { TipoDocumento } from '../page'
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
-interface Props {
-  tipo: TipoDocumento
-  onVolver: () => void
+const HEADERS: Record<string, string> = {
+  'evolucion-uti': 'EVOLUCIÓN DE TERAPIA INTENSIVA',
+  'evolucion-clinica': 'EVOLUCIÓN DE CLÍNICA MÉDICA',
+  'ingreso-uti': 'INGRESO A TERAPIA INTENSIVA',
+  'alta-uti': 'ALTA DE TERAPIA INTENSIVA',
+  'ingreso-clinica': 'INGRESO A CLÍNICA MÉDICA',
+  'alta-clinica': 'ALTA DE CLÍNICA MÉDICA',
 }
 
-const LABELS: Record<string, string> = {
-  'evolucion-uti': 'Evolución UTI',
-  'evolucion-clinica': 'Evolución Clínica Médica',
-  'ingreso-uti': 'Ingreso UTI',
-  'alta-uti': 'Alta UTI',
-  'ingreso-clinica': 'Ingreso Clínica Médica',
-  'alta-clinica': 'Alta Clínica Médica',
+const PROMPTS: Record<string, string> = {
+  'evolucion-uti': `Sos un médico especialista en Terapia Intensiva. Generá una evolución clínica narrativa, fluida y profesional para UTI. Integrá todos los datos disponibles: laboratorio, parámetros del monitor hemodinámico, parámetros del respirador, informes de imágenes, y el dictado del médico. Escribí en prosa continua, sin bullets ni títulos. Mencioná solo los valores relevantes o alterados en forma concisa, sin explicaciones académicas. Máximo 5 oraciones. Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+
+  'evolucion-clinica': `Sos un médico clínico. Generá una evolución clínica narrativa, fluida y profesional para sala de clínica médica. Integrá todos los datos disponibles. Escribí en prosa continua, sin bullets ni títulos. Mencioná solo los valores relevantes o alterados en forma concisa. Máximo 5 oraciones. Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+
+  'ingreso-uti': `Sos un médico especialista en Terapia Intensiva. Generá una hoja de ingreso a UTI completa y narrativa. Incluí: motivo de ingreso, enfermedad actual, antecedentes relevantes, examen físico con datos positivos, laboratorio de ingreso, estudios complementarios, diagnóstico presuntivo y plan terapéutico inicial. Escribí en prosa narrativa continua sin bullets. Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+
+  'alta-uti': `Sos un médico especialista en Terapia Intensiva. Generá el alta de UTI. Incluí: resumen de la internación, evolución durante la estadía en UTI, laboratorio de egreso, diagnósticos de egreso e indicaciones al alta. Escribí en prosa narrativa continua. Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+
+  'ingreso-clinica': `Sos un médico clínico. Generá una hoja de ingreso a clínica médica completa y narrativa. Incluí: motivo de ingreso, enfermedad actual, antecedentes patológicos y quirúrgicos relevantes, examen físico, estudios complementarios, diagnóstico presuntivo y plan terapéutico inicial. Escribí en prosa narrativa continua. Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+
+  'alta-clinica': `Sos un médico clínico. Generá el alta de clínica médica. Incluí: resumen de la internación, evolución, laboratorio de egreso, diagnósticos de egreso e indicaciones al alta con medicación detallada. Escribí en prosa narrativa continua. Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 }
 
-const ES_UTI = (t: TipoDocumento) =>
-  t === 'evolucion-uti' || t === 'ingreso-uti' || t === 'alta-uti'
-
-function todayISO() {
-  const d = new Date()
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
-
-function isoToDisplay(iso: string) {
-  const [y, m, d] = iso.split('-')
-  return `${d}/${m}/${y}`
-}
-
-function guardarEnHistorial(tipo: TipoDocumento, texto: string) {
+async function extraerTextoPDF(buffer: Buffer): Promise<string> {
   try {
-    const item = { id: Date.now(), timestamp: new Date().toISOString(), tipo, texto }
-    const prev = JSON.parse(localStorage.getItem('clinicevol_historial') || '[]')
-    const updated = [item, ...prev].slice(0, 10)
-    localStorage.setItem('clinicevol_historial', JSON.stringify(updated))
-  } catch {}
+    const pdfParse = (await import('pdf-parse')).default
+    const data = await pdfParse(buffer)
+    return data.text
+  } catch {
+    return ''
+  }
 }
 
-export default function EvolucionForm({ tipo, onVolver }: Props) {
-  const [dictado, setDictado] = useState('')
-  const [grabando, setGrabando] = useState(false)
-  const [pdfLab, setPdfLab] = useState<File | null>(null)
-  const [pdfImagenes, setPdfImagenes] = useState<File | null>(null)
-  const [fotosExtra, setFotosExtra] = useState<File[]>([])
-  const [resultado, setResultado] = useState('')
-  const [cargando, setCargando] = useState(false)
-  const [copiado, setCopiado] = useState(false)
-  const [fecha, setFecha] = useState(todayISO())
+async function imagenABase64(file: File): Promise<{ base64: string; mimeType: string }> {
+  const buffer = Buffer.from(await file.arrayBuffer())
+  return { base64: buffer.toString('base64'), mimeType: file.type || 'image/jpeg' }
+}
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const chunksRef = useRef<Blob[]>([])
+export async function POST(req: NextRequest) {
+  try {
+    const fd = await req.formData()
+    const tipo = fd.get('tipo') as string
+    const dictado = fd.get('dictado') as string || ''
+    const fechaParam = fd.get('fecha') as string | null
 
-  const toggleGrabacion = async () => {
-    if (grabando) {
-      mediaRecorderRef.current?.stop()
-      setGrabando(false)
-      return
+    const pdfLab = fd.get('pdfLab') as File | null
+    const pdfImagenes = fd.get('pdfImagenes') as File | null
+
+    const fotos: File[] = []
+    for (const [key, val] of Array.from(fd.entries())) {
+      if (key.startsWith('foto_') && val instanceof File) fotos.push(val)
     }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mr = new MediaRecorder(stream)
-      chunksRef.current = []
-      mr.ondataavailable = (e) => chunksRef.current.push(e.data)
-      mr.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop())
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-        await transcribirAudio(blob)
+
+    let textoLab = ''
+    let textoImagenes = ''
+
+    if (pdfLab) {
+      const buf = Buffer.from(await pdfLab.arrayBuffer())
+      textoLab = await extraerTextoPDF(buf)
+    }
+    if (pdfImagenes) {
+      const buf = Buffer.from(await pdfImagenes.arrayBuffer())
+      textoImagenes = await extraerTextoPDF(buf)
+    }
+
+    const systemPrompt = PROMPTS[tipo] || PROMPTS['evolucion-clinica']
+    const fecha = fechaParam || new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+    let userContent = `Fecha: ${fecha}\n\n`
+    if (dictado) userContent += `DICTADO DEL MÉDICO:\n${dictado}\n\n`
+    if (textoLab) userContent += `LABORATORIO (AVlab):\n${textoLab}\n\n`
+    if (textoImagenes) userContent += `INFORME DE IMÁGENES:\n${textoImagenes}\n\n`
+    if (fotos.length > 0) userContent += `[Se adjuntan ${fotos.length} imagen(es): monitor, respirador y/o informes impresos]\n\n`
+    userContent += 'Generá la evolución clínica completa integrando todos los datos anteriores.'
+
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) return NextResponse.json({ error: 'API key no configurada' }, { status: 500 })
+
+    const messages: any[] = []
+    if (fotos.length > 0) {
+      const contentParts: any[] = []
+      for (const foto of fotos) {
+        const { base64, mimeType } = await imagenABase64(foto)
+        contentParts.push({ type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } })
       }
-      mr.start()
-      mediaRecorderRef.current = mr
-      setGrabando(true)
-    } catch {
-      alert('No se pudo acceder al micrófono')
+      contentParts.push({ type: 'text', text: userContent })
+      messages.push({ role: 'user', content: contentParts })
+    } else {
+      messages.push({ role: 'user', content: userContent })
     }
-  }
 
-  const transcribirAudio = async (blob: Blob) => {
-    const fd = new FormData()
-    fd.append('audio', blob, 'audio.webm')
-    try {
-      const res = await fetch('/api/transcribir', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (data.texto) setDictado((prev) => prev + ' ' + data.texto)
-      else setDictado((prev) => prev + ` [Error al transcribir: ${data.error || 'desconocido'}]`)
-    } catch (e: any) {
-      setDictado((prev) => prev + ` [Error al transcribir: ${e.message}]`)
-    }
-  }
-
-  const comprimirImagen = (file: File): Promise<File> => {
-    return new Promise((resolve) => {
-      const img = new Image()
-      const url = URL.createObjectURL(file)
-      img.onload = () => {
-        const maxW = 1024
-        const scale = img.width > maxW ? maxW / img.width : 1
-        const canvas = document.createElement('canvas')
-        canvas.width = img.width * scale
-        canvas.height = img.height * scale
-        const ctx = canvas.getContext('2d')
-        if (!ctx) { resolve(file); return }
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        canvas.toBlob((blob) => {
-          if (!blob) { resolve(file); return }
-          resolve(new File([blob], file.name, { type: 'image/jpeg' }))
-        }, 'image/jpeg', 0.7)
-        URL.revokeObjectURL(url)
-      }
-      img.onerror = () => resolve(file)
-      img.src = url
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-5',
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages,
+      }),
     })
+
+    const data = await response.json()
+    if (!response.ok) return NextResponse.json({ error: data.error?.message || 'Error API' }, { status: 500 })
+
+    const cuerpo = data.content?.[0]?.text || ''
+    const header = HEADERS[tipo] || ''
+    const texto = header ? `${header}\n\n${fecha}\n\n${cuerpo}` : cuerpo
+    return NextResponse.json({ texto })
+  } catch (err: any) {
+    console.error('Error generar-evolucion:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
   }
-
-  const agregarFotos = async (files: FileList | null) => {
-    if (!files) return
-    const compressed = await Promise.all(Array.from(files).map(comprimirImagen))
-    setFotosExtra((prev) => [...prev, ...compressed])
-  }
-
-  const generarEvolucion = async () => {
-    if (!dictado.trim() && !pdfLab && !pdfImagenes && fotosExtra.length === 0) {
-      alert('Agregá al menos un input: dictado, laboratorio, imágenes o fotos')
-      return
-    }
-    setCargando(true)
-    setResultado('')
-    try {
-      const fd = new FormData()
-      fd.append('tipo', tipo || '')
-      fd.append('dictado', dictado)
-      fd.append('fecha', isoToDisplay(fecha))
-      if (pdfLab) fd.append('pdfLab', pdfLab)
-      if (pdfImagenes) fd.append('pdfImagenes', pdfImagenes)
-      fotosExtra.forEach((f, i) => fd.append(`foto_${i}`, f))
-
-      const res = await fetch('/api/generar-evolucion', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (data.texto) {
-        setResultado(data.texto)
-        guardarEnHistorial(tipo, data.texto)
-      } else alert('Error al generar evolución: ' + (data.error || 'desconocido'))
-    } catch {
-      alert('Error de conexión')
-    } finally {
-      setCargando(false)
-    }
-  }
-
-  const copiar = async () => {
-    await navigator.clipboard.writeText(resultado)
-    setCopiado(true)
-    setTimeout(() => setCopiado(false), 2000)
-  }
-
-  const esUti = ES_UTI(tipo)
-
-  return (
-    <div className="space-y-4">
-      <div className="card flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center text-xl">
-          {esUti ? '🫀' : '🩺'}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="font-bold text-slate-800">{LABELS[tipo || '']}</h2>
-          <div className="flex items-center gap-2 mt-1">
-            <label className="text-xs text-slate-500 font-medium whitespace-nowrap">📅 Fecha:</label>
-            <input
-              type="date"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              className="text-xs text-slate-700 border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand-400 focus:border-brand-400"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="card space-y-3">
-        <h3 className="font-semibold text-slate-700">🎙️ Dictado</h3>
-        <button
-          onClick={toggleGrabacion}
-          className={`w-full py-4 rounded-xl font-semibold text-white transition-all duration-200 active:scale-95 ${
-            grabando ? 'bg-red-500 hover:bg-red-600 animate-pulse' : 'bg-brand-600 hover:bg-brand-700'
-          }`}
-        >
-          {grabando ? '⏹ Detener grabación' : '🎙 Iniciar dictado'}
-        </button>
-        <textarea
-          className="input-area"
-          rows={4}
-          placeholder="El texto transcripto aparecerá aquí. También podés escribir o editar directamente..."
-          value={dictado}
-          onChange={(e) => setDictado(e.target.value)}
-        />
-      </div>
-
-      <div className="card space-y-3">
-        <h3 className="font-semibold text-slate-700">🧪 Laboratorio (PDF AVlab)</h3>
-        <label className="block w-full border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50 transition-colors">
-          <input type="file" accept=".pdf" className="hidden" onChange={(e) => setPdfLab(e.target.files?.[0] || null)} />
-          {pdfLab ? (
-            <span className="text-sm font-medium text-brand-700">✅ {pdfLab.name}</span>
-          ) : (
-            <span className="text-sm text-slate-400">Tocá para subir PDF de laboratorio</span>
-          )}
-        </label>
-      </div>
-
-      <div className="card space-y-3">
-        <h3 className="font-semibold text-slate-700">🔬 Informe de imágenes (PDF Sinclair)</h3>
-        <label className="block w-full border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50 transition-colors">
-          <input type="file" accept=".pdf" className="hidden" onChange={(e) => setPdfImagenes(e.target.files?.[0] || null)} />
-          {pdfImagenes ? (
-            <span className="text-sm font-medium text-brand-700">✅ {pdfImagenes.name}</span>
-          ) : (
-            <span className="text-sm text-slate-400">Tocá para subir PDF del informe</span>
-          )}
-        </label>
-      </div>
-
-      <div className="card space-y-3">
-        <h3 className="font-semibold text-slate-700">
-          📷 Fotos
-          {esUti && <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Monitor · Respirador</span>}
-        </h3>
-        <p className="text-xs text-slate-400">
-          {esUti ? 'Fotos del monitor, respirador o informes impresos' : 'Fotos de informes impresos'}
-        </p>
-        <label className="block w-full border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50 transition-colors">
-          <input type="file" accept="image/*" multiple capture="environment" className="hidden" onChange={(e) => agregarFotos(e.target.files)} />
-          <span className="text-sm text-slate-400">
-            {fotosExtra.length > 0
-              ? `✅ ${fotosExtra.length} foto${fotosExtra.length > 1 ? 's' : ''} cargada${fotosExtra.length > 1 ? 's' : ''}`
-              : 'Tocá para sacar foto o subir imagen'}
-          </span>
-        </label>
-        {fotosExtra.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {fotosExtra.map((f, i) => (
-              <div key={i} className="relative">
-                <img src={URL.createObjectURL(f)} alt={`foto ${i + 1}`} className="w-16 h-16 object-cover rounded-lg border border-slate-200" />
-                <button onClick={() => setFotosExtra((prev) => prev.filter((_, j) => j !== i))} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">×</button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <button
-        onClick={generarEvolucion}
-        disabled={cargando}
-        className="w-full py-4 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-300 text-white font-bold rounded-2xl transition-all duration-200 active:scale-95 text-base shadow-md"
-      >
-        {cargando ? '⏳ Generando evolución...' : '✨ Generar evolución'}
-      </button>
-
-      {resultado && (
-        <div className="card space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-slate-700">📄 Evolución generada</h3>
-            <button
-              onClick={copiar}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-95 ${
-                copiado ? 'bg-green-500 text-white' : 'bg-brand-600 hover:bg-brand-700 text-white'
-              }`}
-            >
-              {copiado ? '✅ ¡Copiado!' : '📋 Copiar'}
-            </button>
-          </div>
-          <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-800 leading-relaxed whitespace-pre-wrap border border-slate-100">
-            {resultado}
-          </div>
-          <p className="text-xs text-slate-400 text-center">Copiá el texto y pegalo en el sistema de la clínica</p>
-        </div>
-      )}
-    </div>
-  )
 }
