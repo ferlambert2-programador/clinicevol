@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
     const fd = await req.formData()
     const tipo = fd.get('tipo') as string
     const dictado = fd.get('dictado') as string || ''
+    const fechaParam = fd.get('fecha') as string | null
 
     const pdfLab = fd.get('pdfLab') as File | null
     const pdfImagenes = fd.get('pdfImagenes') as File | null
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
     }
 
     const systemPrompt = PROMPTS[tipo] || PROMPTS['evolucion-clinica']
-    const fecha = new Date().toLocaleDateString('es-AR', {
+    const fecha = fechaParam || new Date().toLocaleDateString('es-AR', {
       day: '2-digit', month: '2-digit', year: 'numeric'
     })
 
