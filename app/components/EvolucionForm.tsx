@@ -1,5 +1,3 @@
-
-
 'use client'
 
 import { useState, useRef } from 'react'
@@ -45,7 +43,6 @@ function guardarEnHistorial(tipo: TipoDocumento, texto: string) {
 }
 
 export default function EvolucionForm({ tipo, onVolver }: Props) {
-  const [fecha, setFecha] = useState(todayISO())
   const [dictado, setDictado] = useState('')
   const [grabando, setGrabando] = useState(false)
   const [pdfLab, setPdfLab] = useState<File | null>(null)
@@ -54,6 +51,7 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
   const [resultado, setResultado] = useState('')
   const [cargando, setCargando] = useState(false)
   const [copiado, setCopiado] = useState(false)
+  const [fecha, setFecha] = useState(todayISO())
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -89,33 +87,35 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
       const res = await fetch('/api/transcribir', { method: 'POST', body: fd })
       const data = await res.json()
       if (data.texto) setDictado((prev) => prev + ' ' + data.texto)
-      else setDictado((prev) => prev + '\n[Error al transcribir: ' + (data.error || 'respuesta inválida') + ']')
-    } catch (err) {
-      setDictado((prev) => prev + '\n[Error al transcribir: ' + (err instanceof Error ? err.message : 'error de conexión') + ']')
+      else setDictado((prev) => prev + ` [Error al transcribir: ${data.error || 'desconocido'}]`)
+    } catch (e: any) {
+      setDictado((prev) => prev + ` [Error al transcribir: ${e.message}]`)
     }
   }
 
-  const comprimirImagen = (file: File): Promise<File> =>
-    new Promise((resolve) => {
+  const comprimirImagen = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
       const img = new Image()
       const url = URL.createObjectURL(file)
       img.onload = () => {
-        URL.revokeObjectURL(url)
         const maxW = 1024
         const scale = img.width > maxW ? maxW / img.width : 1
         const canvas = document.createElement('canvas')
-        canvas.width = Math.round(img.width * scale)
-        canvas.height = Math.round(img.height * scale)
-        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
-        canvas.toBlob(
-          (blob) => resolve(blob ? new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }) : file),
-          'image/jpeg',
-          0.7,
-        )
+        canvas.width = img.width * scale
+        canvas.height = img.height * scale
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { resolve(file); return }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        canvas.toBlob((blob) => {
+          if (!blob) { resolve(file); return }
+          resolve(new File([blob], file.name, { type: 'image/jpeg' }))
+        }, 'image/jpeg', 0.7)
+        URL.revokeObjectURL(url)
       }
-      img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+      img.onerror = () => resolve(file)
       img.src = url
     })
+  }
 
   const agregarFotos = async (files: FileList | null) => {
     if (!files) return
@@ -163,7 +163,7 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
   return (
     <div className="space-y-4">
       <div className="card flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center text-xl flex-shrink-0">
+        <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center text-xl">
           {esUti ? '🫀' : '🩺'}
         </div>
         <div className="flex-1 min-w-0">
@@ -174,7 +174,7 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
               type="date"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
-              className="text-xs text-slate-700 border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-300"
+              className="text-xs text-slate-700 border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand-400 focus:border-brand-400"
             />
           </div>
         </div>
@@ -202,12 +202,7 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
       <div className="card space-y-3">
         <h3 className="font-semibold text-slate-700">🧪 Laboratorio (PDF AVlab)</h3>
         <label className="block w-full border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50 transition-colors">
-          <input
-            type="file"
-            accept=".pdf"
-            className="hidden"
-            onChange={(e) => setPdfLab(e.target.files?.[0] || null)}
-          />
+          <input type="file" accept=".pdf" className="hidden" onChange={(e) => setPdfLab(e.target.files?.[0] || null)} />
           {pdfLab ? (
             <span className="text-sm font-medium text-brand-700">✅ {pdfLab.name}</span>
           ) : (
@@ -219,12 +214,7 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
       <div className="card space-y-3">
         <h3 className="font-semibold text-slate-700">🔬 Informe de imágenes (PDF Sinclair)</h3>
         <label className="block w-full border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50 transition-colors">
-          <input
-            type="file"
-            accept=".pdf"
-            className="hidden"
-            onChange={(e) => setPdfImagenes(e.target.files?.[0] || null)}
-          />
+          <input type="file" accept=".pdf" className="hidden" onChange={(e) => setPdfImagenes(e.target.files?.[0] || null)} />
           {pdfImagenes ? (
             <span className="text-sm font-medium text-brand-700">✅ {pdfImagenes.name}</span>
           ) : (
@@ -242,14 +232,7 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
           {esUti ? 'Fotos del monitor, respirador o informes impresos' : 'Fotos de informes impresos'}
         </p>
         <label className="block w-full border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50 transition-colors">
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            capture="environment"
-            className="hidden"
-            onChange={(e) => agregarFotos(e.target.files)}
-          />
+          <input type="file" accept="image/*" multiple capture="environment" className="hidden" onChange={(e) => agregarFotos(e.target.files)} />
           <span className="text-sm text-slate-400">
             {fotosExtra.length > 0
               ? `✅ ${fotosExtra.length} foto${fotosExtra.length > 1 ? 's' : ''} cargada${fotosExtra.length > 1 ? 's' : ''}`
@@ -260,15 +243,8 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
           <div className="flex flex-wrap gap-2">
             {fotosExtra.map((f, i) => (
               <div key={i} className="relative">
-                <img
-                  src={URL.createObjectURL(f)}
-                  alt={`foto ${i + 1}`}
-                  className="w-16 h-16 object-cover rounded-lg border border-slate-200"
-                />
-                <button
-                  onClick={() => setFotosExtra((prev) => prev.filter((_, j) => j !== i))}
-                  className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center"
-                >×</button>
+                <img src={URL.createObjectURL(f)} alt={`foto ${i + 1}`} className="w-16 h-16 object-cover rounded-lg border border-slate-200" />
+                <button onClick={() => setFotosExtra((prev) => prev.filter((_, j) => j !== i))} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">×</button>
               </div>
             ))}
           </div>
@@ -299,9 +275,7 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
           <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-800 leading-relaxed whitespace-pre-wrap border border-slate-100">
             {resultado}
           </div>
-          <p className="text-xs text-slate-400 text-center">
-            Copiá el texto y pegalo en el sistema de la clínica
-          </p>
+          <p className="text-xs text-slate-400 text-center">Copiá el texto y pegalo en el sistema de la clínica</p>
         </div>
       )}
     </div>
