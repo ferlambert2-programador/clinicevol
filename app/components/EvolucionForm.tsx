@@ -1,3 +1,5 @@
+$ cat /home/user/clinicevol/app/components/EvolucionForm.tsx
+
 'use client'
 
 import { useState, useRef } from 'react'
@@ -20,7 +22,30 @@ const LABELS: Record<string, string> = {
 const ES_UTI = (t: TipoDocumento) =>
   t === 'evolucion-uti' || t === 'ingreso-uti' || t === 'alta-uti'
 
+function todayISO() {
+  const d = new Date()
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function isoToDisplay(iso: string) {
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+function guardarEnHistorial(tipo: TipoDocumento, texto: string) {
+  try {
+    const item = { id: Date.now(), timestamp: new Date().toISOString(), tipo, texto }
+    const prev = JSON.parse(localStorage.getItem('clinicevol_historial') || '[]')
+    const updated = [item, ...prev].slice(0, 10)
+    localStorage.setItem('clinicevol_historial', JSON.stringify(updated))
+  } catch {}
+}
+
 export default function EvolucionForm({ tipo, onVolver }: Props) {
+  const [fecha, setFecha] = useState(todayISO())
   const [dictado, setDictado] = useState('')
   const [grabando, setGrabando] = useState(false)
   const [pdfLab, setPdfLab] = useState<File | null>(null)
@@ -109,14 +134,17 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
       const fd = new FormData()
       fd.append('tipo', tipo || '')
       fd.append('dictado', dictado)
+      fd.append('fecha', isoToDisplay(fecha))
       if (pdfLab) fd.append('pdfLab', pdfLab)
       if (pdfImagenes) fd.append('pdfImagenes', pdfImagenes)
       fotosExtra.forEach((f, i) => fd.append(`foto_${i}`, f))
 
       const res = await fetch('/api/generar-evolucion', { method: 'POST', body: fd })
       const data = await res.json()
-      if (data.texto) setResultado(data.texto)
-      else alert('Error al generar evolución: ' + (data.error || 'desconocido'))
+      if (data.texto) {
+        setResultado(data.texto)
+        guardarEnHistorial(tipo, data.texto)
+      } else alert('Error al generar evolución: ' + (data.error || 'desconocido'))
     } catch {
       alert('Error de conexión')
     } finally {
@@ -135,14 +163,20 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
   return (
     <div className="space-y-4">
       <div className="card flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center text-xl">
+        <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center text-xl flex-shrink-0">
           {esUti ? '🫀' : '🩺'}
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <h2 className="font-bold text-slate-800">{LABELS[tipo || '']}</h2>
-          <p className="text-xs text-slate-400">
-            {new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <label className="text-xs text-slate-500 font-medium whitespace-nowrap">📅 Fecha:</label>
+            <input
+              type="date"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+              className="text-xs text-slate-700 border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-300"
+            />
+          </div>
         </div>
       </div>
 
