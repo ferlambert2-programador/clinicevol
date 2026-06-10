@@ -1,3 +1,5 @@
+$ cat /home/user/clinicevol/app/page.tsx
+
 'use client'
 
 import { useState, useEffect } from 'react'
