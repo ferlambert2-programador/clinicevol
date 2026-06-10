@@ -1,7 +1,83 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import EvolucionForm from './components/EvolucionForm'
+
+interface HistorialItem {
+  id: number
+  timestamp: string
+  tipo: string
+  texto: string
+}
+
+const LABELS: Record<string, string> = {
+  'evolucion-uti': 'Evolución UTI',
+  'evolucion-clinica': 'Evolución Clínica Médica',
+  'ingreso-uti': 'Ingreso UTI',
+  'alta-uti': 'Alta UTI',
+  'ingreso-clinica': 'Ingreso Clínica Médica',
+  'alta-clinica': 'Alta Clínica Médica',
+}
+
+function HistorialModal({ onClose }: { onClose: () => void }) {
+  const [items, setItems] = useState<HistorialItem[]>([])
+  const [copiado, setCopiado] = useState<number | null>(null)
+
+  useEffect(() => {
+    try {
+      const data = JSON.parse(localStorage.getItem('clinicevol_historial') || '[]')
+      setItems(data)
+    } catch {}
+  }, [])
+
+  const copiar = async (item: HistorialItem) => {
+    await navigator.clipboard.writeText(item.texto)
+    setCopiado(item.id)
+    setTimeout(() => setCopiado(null), 2000)
+  }
+
+  const formatFecha = (iso: string) => {
+    const d = new Date(iso)
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+      ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-4 pb-4 px-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl">
+        <div className="flex items-center justify-between p-4 border-b border-slate-100">
+          <h2 className="font-bold text-slate-800 text-lg">📋 Historial de evoluciones</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl font-bold px-2">×</button>
+        </div>
+        <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+          {items.length === 0 ? (
+            <p className="text-slate-400 text-sm text-center py-8">No hay evoluciones guardadas aún</p>
+          ) : (
+            items.map((item) => (
+              <div key={item.id} className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-700">{LABELS[item.tipo] || item.tipo}</span>
+                    <span className="text-xs text-slate-400 ml-2">{formatFecha(item.timestamp)}</span>
+                  </div>
+                  <button
+                    onClick={() => copiar(item)}
+                    className={`text-xs font-semibold px-3 py-1 rounded-lg transition-all active:scale-95 ${
+                      copiado === item.id ? 'bg-green-500 text-white' : 'bg-brand-600 text-white hover:bg-brand-700'
+                    }`}
+                  >
+                    {copiado === item.id ? '✅ Copiado' : '📋 Copiar'}
+                  </button>
+                </div>
+                <pre className="text-xs text-slate-700 p-3 whitespace-pre-wrap leading-relaxed font-sans">{item.texto}</pre>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export type TipoDocumento =
   | 'evolucion-uti'
@@ -65,9 +141,12 @@ const TIPOS = [
 
 export default function Home() {
   const [tipo, setTipo] = useState<TipoDocumento>(null)
+  const [verHistorial, setVerHistorial] = useState(false)
 
   return (
     <main className="min-h-screen bg-slate-50">
+      {verHistorial && <HistorialModal onClose={() => setVerHistorial(false)} />}
+
       {/* Header */}
       <header className="bg-white border-b border-slate-100 sticky top-0 z-10 shadow-sm">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -78,14 +157,22 @@ export default function Home() {
               <p className="text-xs text-slate-400">Evoluciones clínicas con IA</p>
             </div>
           </div>
-          {tipo && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setTipo(null)}
+              onClick={() => setVerHistorial(true)}
               className="text-sm text-slate-500 hover:text-slate-700 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
             >
-              ← Cambiar
+              📋 Historial
             </button>
-          )}
+            {tipo && (
+              <button
+                onClick={() => setTipo(null)}
+                className="text-sm text-slate-500 hover:text-slate-700 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                ← Cambiar
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
