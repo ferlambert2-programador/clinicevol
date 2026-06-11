@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import EvolucionForm from './components/EvolucionForm'
 
 export type TipoDocumento =
@@ -21,8 +21,112 @@ const TIPOS = [
   { id: 'alta-clinica', label: 'Alta Clínica Médica', icon: '🏠', color: 'bg-teal-50 border-teal-300 hover:bg-teal-100' },
 ]
 
+const LABELS: Record<string, string> = {
+  'evolucion-uti': 'Evolución UTI',
+  'evolucion-clinica': 'Evolución Clínica Médica',
+  'ingreso-uti': 'Ingreso UTI',
+  'alta-uti': 'Alta UTI',
+  'ingreso-clinica': 'Ingreso Clínica Médica',
+  'alta-clinica': 'Alta Clínica Médica',
+}
+
 const USUARIO_VALIDO = 'fernando'
 const PASSWORD_VALIDA = 'clinicevol2024'
+
+function HistorialPanel({ usuario, onClose }: { usuario: string; onClose: () => void }) {
+  const [items, setItems] = useState<any[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [copiado, setCopiado] = useState<string | null>(null)
+
+  useEffect(() => {
+    const cargar = async () => {
+      try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        const res = await fetch(
+          `${url}/rest/v1/evoluciones?usuario=eq.${usuario}&order=fecha.desc&limit=20`,
+          { headers: { apikey: key!, Authorization: `Bearer ${key}` } }
+        )
+        const data = await res.json()
+        setItems(data)
+      } catch {
+        setItems([])
+      } finally {
+        setCargando(false)
+      }
+    }
+    cargar()
+  }, [usuario])
+
+  const copiar = async (texto: string, key: string) => {
+    await navigator.clipboard.writeText(texto)
+    setCopiado(key)
+    setTimeout(() => setCopiado(null), 2000)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={onClose}>
+      <div className="bg-white rounded-t-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto p-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-bold text-slate-800 text-lg">📋 Historial</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">×</button>
+        </div>
+
+        {cargando && <p className="text-slate-400 text-sm text-center py-8">Cargando...</p>}
+        {!cargando && items.length === 0 && (
+          <p className="text-slate-400 text-sm text-center py-8">No hay evoluciones guardadas todavía</p>
+        )}
+
+        {items.map((item) => {
+          const contenido: Record<string, string> = item.contenido
+          const fecha = new Date(item.fecha).toLocaleString('es-AR', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+          })
+          const textoCompleto = Object.values(contenido).join('\n\n')
+
+          return (
+            <div key={item.id} className="border border-slate-200 rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-semibold text-slate-700">{LABELS[item.tipo] || item.tipo}</span>
+                  <span className="text-xs text-slate-400 ml-2">{fecha}</span>
+                </div>
+                <button
+                  onClick={() => copiar(textoCompleto, `todo-${item.id}`)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    copiado === `todo-${item.id}` ? 'bg-green-500 text-white' : 'bg-teal-600 text-white hover:bg-teal-700'
+                  }`}
+                >
+                  {copiado === `todo-${item.id}` ? '✅ Copiado' : '📋 Copiar todo'}
+                </button>
+              </div>
+
+              {Object.entries(contenido).map(([key, valor]) => (
+                <div key={key} className="bg-slate-50 rounded-lg p-2 space-y-1">
+                  {key !== 'texto' && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-500 uppercase">{key}</span>
+                      <button
+                        onClick={() => copiar(valor, `${item.id}-${key}`)}
+                        className={`px-2 py-0.5 rounded text-xs font-semibold transition-all ${
+                          copiado === `${item.id}-${key}` ? 'bg-green-500 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-600'
+                        }`}
+                      >
+                        {copiado === `${item.id}-${key}` ? '✅' : '📋'}
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap line-clamp-3">{valor}</p>
+                </div>
+              ))}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 export default function Home() {
   const [tipo, setTipo] = useState<TipoDocumento>(null)
@@ -30,6 +134,7 @@ export default function Home() {
   const [password, setPassword] = useState('')
   const [logueado, setLogueado] = useState(false)
   const [errorLogin, setErrorLogin] = useState('')
+  const [mostrarHistorial, setMostrarHistorial] = useState(false)
 
   function handleLogin() {
     if (usuario === USUARIO_VALIDO && password === PASSWORD_VALIDA) {
@@ -98,6 +203,12 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400">{usuario}</span>
             <button
+              onClick={() => setMostrarHistorial(true)}
+              className="text-sm text-slate-500 hover:text-slate-700 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              📋 Historial
+            </button>
+            <button
               onClick={() => { setLogueado(false); setTipo(null) }}
               className="text-sm text-slate-500 hover:text-slate-700 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
             >
@@ -139,6 +250,10 @@ export default function Home() {
           <EvolucionForm tipo={tipo} usuario={usuario} onVolver={() => setTipo(null)} />
         )}
       </div>
+
+      {mostrarHistorial && (
+        <HistorialPanel usuario={usuario} onClose={() => setMostrarHistorial(false)} />
+      )}
     </main>
   )
 }
