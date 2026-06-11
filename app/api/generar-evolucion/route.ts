@@ -17,13 +17,43 @@ const PROMPTS: Record<string, string> = {
 
   'evolucion-clinica': `Sos un médico clínico escribiendo una evolución diaria de sala. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets, solo valores ANORMALES, no explicar valores normales, no hacer análisis académico. Integrá dictado, labs e imágenes en forma concisa. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'ingreso-uti': `Sos un médico de UTI escribiendo una hoja de ingreso. Escribí UN PÁRRAFO ÚNICO y conciso que incluya: motivo de ingreso, enfermedad actual, antecedentes relevantes, examen físico positivo, laboratorio alterado, diagnóstico y plan. Sin bullets, sin títulos, sin repetir datos. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'ingreso-uti': `Sos un médico de UTI escribiendo una hoja de ingreso. Generá el texto en este formato exacto, cada ítem en una línea separada:
+Motivo de ingreso: [una oración]
+Enfermedad actual: [una o dos oraciones]
+Antecedentes: [solo los relevantes]
+Examen físico: [solo datos positivos]
+Laboratorio: [solo valores alterados con números]
+Estudios complementarios: [si hay]
+Diagnóstico presuntivo: [diagnóstico principal]
+Plan: [acciones concretas]
+Sin análisis académico, sin repetir datos. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'alta-uti': `Sos un médico de UTI escribiendo un alta. Escribí UN PÁRRAFO ÚNICO y conciso que incluya: resumen de internación, evolución, labs de egreso alterados, diagnósticos de egreso e indicaciones. Sin bullets, sin títulos. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'alta-uti': `Sos un médico de UTI escribiendo un alta. Generá el texto en este formato exacto, cada ítem en una línea separada:
+Resumen de internación: [una o dos oraciones]
+Evolución: [una oración]
+Laboratorio de egreso: [solo valores alterados]
+Diagnósticos de egreso: [listado]
+Indicaciones: [medicación y controles concretos]
+Sin análisis académico. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'ingreso-clinica': `Sos un médico clínico escribiendo una hoja de ingreso. Escribí UN PÁRRAFO ÚNICO y conciso que incluya: motivo de ingreso, enfermedad actual, antecedentes relevantes, examen físico positivo, estudios alterados, diagnóstico y plan. Sin bullets, sin títulos, sin repetir datos. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'ingreso-clinica': `Sos un médico clínico escribiendo una hoja de ingreso. Generá el texto en este formato exacto, cada ítem en una línea separada:
+Motivo de ingreso: [una oración]
+Enfermedad actual: [una o dos oraciones]
+Antecedentes: [solo los relevantes]
+Examen físico: [solo datos positivos]
+Laboratorio: [solo valores alterados con números]
+Estudios complementarios: [si hay]
+Diagnóstico presuntivo: [diagnóstico principal]
+Plan: [acciones concretas]
+Sin análisis académico, sin repetir datos. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'alta-clinica': `Sos un médico clínico escribiendo un alta. Escribí UN PÁRRAFO ÚNICO y conciso que incluya: resumen de internación, evolución, labs de egreso alterados, diagnósticos de egreso e indicaciones con medicación. Sin bullets, sin títulos. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'alta-clinica': `Sos un médico clínico escribiendo un alta. Generá el texto en este formato exacto, cada ítem en una línea separada:
+Resumen de internación: [una o dos oraciones]
+Evolución: [una oración]
+Laboratorio de egreso: [solo valores alterados]
+Diagnósticos de egreso: [listado]
+Indicaciones: [medicación y controles concretos]
+Sin análisis académico. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 }
 
 async function extraerTextoPDF(buffer: Buffer): Promise<string> {
@@ -76,7 +106,7 @@ export async function POST(req: NextRequest) {
     if (textoLab) userContent += `LABORATORIO:\n${textoLab}\n\n`
     if (textoImagenes) userContent += `IMÁGENES:\n${textoImagenes}\n\n`
     if (fotos.length > 0) userContent += `[${fotos.length} foto(s) adjunta(s): monitor, respirador o informes]\n\n`
-    userContent += 'IMPORTANTE: Seguí estrictamente las reglas del sistema. Respuesta breve y concisa.'
+    userContent += 'IMPORTANTE: Seguí estrictamente el formato indicado. Respuesta concisa.'
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) return NextResponse.json({ error: 'API key no configurada' }, { status: 500 })
@@ -103,7 +133,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: 'claude-opus-4-5',
-        max_tokens: 600,
+        max_tokens: 800,
         system: systemPrompt,
         messages,
       }),
