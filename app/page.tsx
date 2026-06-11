@@ -38,25 +38,39 @@ function HistorialPanel({ usuario, onClose }: { usuario: string; onClose: () => 
   const [cargando, setCargando] = useState(true)
   const [copiado, setCopiado] = useState<string | null>(null)
 
-  useEffect(() => {
-    const cargar = async () => {
-      try {
-        const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-        const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        const res = await fetch(
-          `${url}/rest/v1/evoluciones?usuario=eq.${usuario}&order=fecha.desc&limit=20`,
-          { headers: { apikey: key!, Authorization: `Bearer ${key}` } }
-        )
-        const data = await res.json()
-        setItems(data)
-      } catch {
-        setItems([])
-      } finally {
-        setCargando(false)
-      }
+  const cargar = async () => {
+    try {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      const res = await fetch(
+        `${url}/rest/v1/evoluciones?usuario=eq.${usuario}&order=fecha.desc&limit=50`,
+        { headers: { apikey: key!, Authorization: `Bearer ${key}` } }
+      )
+      const data = await res.json()
+      setItems(data)
+    } catch {
+      setItems([])
+    } finally {
+      setCargando(false)
     }
-    cargar()
-  }, [usuario])
+  }
+
+  useEffect(() => { cargar() }, [usuario])
+
+  const eliminar = async (id: string) => {
+    if (!confirm('¿Eliminar esta evolución?')) return
+    try {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      await fetch(`${url}/rest/v1/evoluciones?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: { apikey: key!, Authorization: `Bearer ${key}` },
+      })
+      setItems((prev) => prev.filter((i) => i.id !== id))
+    } catch {
+      alert('Error al eliminar')
+    }
+  }
 
   const copiar = async (texto: string, key: string) => {
     await navigator.clipboard.writeText(texto)
@@ -92,14 +106,22 @@ function HistorialPanel({ usuario, onClose }: { usuario: string; onClose: () => 
                   <span className="text-sm font-semibold text-slate-700">{LABELS[item.tipo] || item.tipo}</span>
                   <span className="text-xs text-slate-400 ml-2">{fecha}</span>
                 </div>
-                <button
-                  onClick={() => copiar(textoCompleto, `todo-${item.id}`)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                    copiado === `todo-${item.id}` ? 'bg-green-500 text-white' : 'bg-teal-600 text-white hover:bg-teal-700'
-                  }`}
-                >
-                  {copiado === `todo-${item.id}` ? '✅ Copiado' : '📋 Copiar todo'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => copiar(textoCompleto, `todo-${item.id}`)}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      copiado === `todo-${item.id}` ? 'bg-green-500 text-white' : 'bg-teal-600 text-white hover:bg-teal-700'
+                    }`}
+                  >
+                    {copiado === `todo-${item.id}` ? '✅ Copiado' : '📋 Copiar todo'}
+                  </button>
+                  <button
+                    onClick={() => eliminar(item.id)}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold bg-red-50 text-red-500 hover:bg-red-100 transition-all"
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
 
               {Object.entries(contenido).map(([key, valor]) => (
@@ -201,59 +223,4 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">{usuario}</span>
-            <button
-              onClick={() => setMostrarHistorial(true)}
-              className="text-sm text-slate-500 hover:text-slate-700 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-            >
-              📋 Historial
-            </button>
-            <button
-              onClick={() => { setLogueado(false); setTipo(null) }}
-              className="text-sm text-slate-500 hover:text-slate-700 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-            >
-              Salir
-            </button>
-            {tipo && (
-              <button
-                onClick={() => setTipo(null)}
-                className="text-sm text-slate-500 hover:text-slate-700 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-              >
-                ← Cambiar
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-2xl mx-auto px-4 py-6">
-        {!tipo ? (
-          <>
-            <div className="mb-6">
-              <h2 className="text-xl font-bold text-slate-800 mb-1">¿Qué vas a generar?</h2>
-              <p className="text-slate-500 text-sm">Seleccioná el tipo de documento</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {TIPOS.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setTipo(t.id as TipoDocumento)}
-                  className={`border-2 rounded-2xl p-4 text-left transition-all duration-150 active:scale-95 ${t.color}`}
-                >
-                  <span className="text-3xl block mb-2">{t.icon}</span>
-                  <span className="text-sm font-semibold text-slate-800 leading-tight">{t.label}</span>
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          <EvolucionForm tipo={tipo} usuario={usuario} onVolver={() => setTipo(null)} />
-        )}
-      </div>
-
-      {mostrarHistorial && (
-        <HistorialPanel usuario={usuario} onClose={() => setMostrarHistorial(false)} />
-      )}
-    </main>
-  )
-}
+            <span className="text-xs
