@@ -13,79 +13,76 @@ export type TipoDocumento =
   | null
 
 const TIPOS = [
-  { id: 'evolucion-uti', label: 'Evolución UTI', icon: '🫀', color: 'bg-amber-50 border-amber-300 hover:bg-amber-100' },
-  { id: 'evolucion-clinica', label: 'Evolución Clínica Médica', icon: '🩺', color: 'bg-emerald-50 border-emerald-300 hover:bg-emerald-100' },
-  { id: 'ingreso-uti', label: 'Ingreso UTI', icon: '🚨', color: 'bg-red-50 border-red-300 hover:bg-red-100' },
-  { id: 'alta-uti', label: 'Alta UTI', icon: '✅', color: 'bg-sky-50 border-sky-300 hover:bg-sky-100' },
-  { id: 'ingreso-clinica', label: 'Ingreso Clínica Médica', icon: '📋', color: 'bg-violet-50 border-violet-300 hover:bg-violet-100' },
-  { id: 'alta-clinica', label: 'Alta Clínica Médica', icon: '🏠', color: 'bg-teal-50 border-teal-300 hover:bg-teal-100' },
+  { id: 'evolucion-uti', label: 'Evolución UTI', icon: '🔴', color: 'bg-amber-50 border-amber-300 hover:bg-amber-100' },
+  { id: 'evolucion-clinica', label: 'Evolución Clínica Médica', icon: '🟢', color: 'bg-emerald-50 border-emerald-300 hover:bg-emerald-100' },
+  { id: 'ingreso-uti', label: 'Ingreso UTI', icon: '🔺', color: 'bg-red-50 border-red-300 hover:bg-red-100' },
+  { id: 'alta-uti', label: 'Alta UTI', icon: '🔷', color: 'bg-sky-50 border-sky-300 hover:bg-sky-100' },
+  { id: 'ingreso-clinica', label: 'Ingreso Clínica Médica', icon: '🟣', color: 'bg-violet-50 border-violet-300 hover:bg-violet-100' },
+  { id: 'alta-clinica', label: 'Alta Clínica Médica', icon: '🟤', color: 'bg-teal-50 border-teal-300 hover:bg-teal-100' },
 ]
 
-interface HistorialItem {
-  id: number
-  timestamp: string
-  tipo: TipoDocumento
-  texto: string
-}
-
-const LABELS: Record<string, string> = {
-  'evolucion-uti': 'Evolución UTI',
-  'evolucion-clinica': 'Evolución Clínica Médica',
-  'ingreso-uti': 'Ingreso UTI',
-  'alta-uti': 'Alta UTI',
-  'ingreso-clinica': 'Ingreso Clínica Médica',
-  'alta-clinica': 'Alta Clínica Médica',
-}
-
-function HistorialModal({ onClose }: { onClose: () => void }) {
-  const [copiado, setCopiado] = useState<number | null>(null)
-  let items: HistorialItem[] = []
-  try {
-    items = JSON.parse(localStorage.getItem('clinicevol_historial') || '[]')
-  } catch {}
-
-  const copiar = async (item: HistorialItem) => {
-    await navigator.clipboard.writeText(item.texto)
-    setCopiado(item.id)
-    setTimeout(() => setCopiado(null), 2000)
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={onClose}>
-      <div className="bg-white rounded-t-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-bold text-slate-800 text-lg">📋 Historial</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">×</button>
-        </div>
-        {items.length === 0 ? (
-          <p className="text-slate-400 text-sm text-center py-8">No hay evoluciones guardadas todavía</p>
-        ) : (
-          items.map((item) => (
-            <div key={item.id} className="border border-slate-100 rounded-xl p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-semibold text-slate-600">{LABELS[item.tipo || ''] || item.tipo}</span>
-                  <span className="text-xs text-slate-400 ml-2">{new Date(item.timestamp).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-                <button
-                  onClick={() => copiar(item)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${copiado === item.id ? 'bg-green-500 text-white' : 'bg-brand-600 text-white hover:bg-brand-700'}`}
-                >
-                  {copiado === item.id ? '✅ Copiado' : '📋 Copiar'}
-                </button>
-              </div>
-              <p className="text-xs text-slate-600 leading-relaxed line-clamp-3 whitespace-pre-wrap">{item.texto}</p>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  )
-}
+const USUARIO_VALIDO = 'fernando'
+const PASSWORD_VALIDA = 'clinicevol2024'
 
 export default function Home() {
   const [tipo, setTipo] = useState<TipoDocumento>(null)
-  const [mostrarHistorial, setMostrarHistorial] = useState(false)
+  const [usuario, setUsuario] = useState('')
+  const [password, setPassword] = useState('')
+  const [logueado, setLogueado] = useState(false)
+  const [errorLogin, setErrorLogin] = useState('')
+
+  function handleLogin() {
+    if (usuario === USUARIO_VALIDO && password === PASSWORD_VALIDA) {
+      setLogueado(true)
+      setErrorLogin('')
+    } else {
+      setErrorLogin('Usuario o contraseña incorrectos')
+    }
+  }
+
+  if (!logueado) {
+    return (
+      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 w-full max-w-sm">
+          <div className="text-center mb-6">
+            <span className="text-4xl">🏥</span>
+            <h1 className="text-2xl font-bold text-slate-800 mt-2">ClinicEvol</h1>
+            <p className="text-sm text-slate-400">Evoluciones clínicas con IA</p>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-slate-600">Usuario</label>
+              <input
+                type="text"
+                value={usuario}
+                onChange={(e) => setUsuario(e.target.value)}
+                className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                placeholder="usuario"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-600">Contraseña</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                placeholder="••••••••"
+              />
+            </div>
+            {errorLogin && <p className="text-red-500 text-sm">{errorLogin}</p>}
+            <button
+              onClick={handleLogin}
+              className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 rounded-lg transition-colors"
+            >
+              Ingresar
+            </button>
+          </div>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -99,11 +96,12 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400">{usuario}</span>
             <button
-              onClick={() => setMostrarHistorial(true)}
+              onClick={() => { setLogueado(false); setTipo(null) }}
               className="text-sm text-slate-500 hover:text-slate-700 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
             >
-              📋 Historial
+              Salir
             </button>
             {tipo && (
               <button
@@ -138,11 +136,9 @@ export default function Home() {
             </div>
           </>
         ) : (
-          <EvolucionForm tipo={tipo} onVolver={() => setTipo(null)} />
+          <EvolucionForm tipo={tipo} usuario={usuario} onVolver={() => setTipo(null)} />
         )}
       </div>
-
-      {mostrarHistorial && <HistorialModal onClose={() => setMostrarHistorial(false)} />}
     </main>
   )
 }
