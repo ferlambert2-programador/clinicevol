@@ -223,4 +223,59 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs
+            <span className="text-xs text-slate-400">{usuario}</span>
+            <button
+              onClick={() => setMostrarHistorial(true)}
+              className="text-sm text-slate-500 hover:text-slate-700 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              📋 Historial
+            </button>
+            <button
+              onClick={() => { setLogueado(false); setTipo(null) }}
+              className="text-sm text-slate-500 hover:text-slate-700 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              Salir
+            </button>
+            {tipo && (
+              <button
+                onClick={() => setTipo(null)}
+                className="text-sm text-slate-500 hover:text-slate-700 font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                ← Cambiar
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        {!tipo ? (
+          <>
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-slate-800 mb-1">¿Qué vas a generar?</h2>
+              <p className="text-slate-500 text-sm">Seleccioná el tipo de documento</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {TIPOS.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTipo(t.id as TipoDocumento)}
+                  className={`border-2 rounded-2xl p-4 text-left transition-all duration-150 active:scale-95 ${t.color}`}
+                >
+                  <span className="text-3xl block mb-2">{t.icon}</span>
+                  <span className="text-sm font-semibold text-slate-800 leading-tight">{t.label}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <EvolucionForm tipo={tipo} usuario={usuario} onVolver={() => setTipo(null)} />
+        )}
+      </div>
+
+      {mostrarHistorial && (
+        <HistorialPanel usuario={usuario} onClose={() => setMostrarHistorial(false)} />
+      )}
+    </main>
+  )
+}
