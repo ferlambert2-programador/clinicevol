@@ -12,48 +12,62 @@ const HEADERS: Record<string, string> = {
   'alta-clinica': 'ALTA DE CLÍNICA MÉDICA',
 }
 
+const ES_SECCIONADO = (tipo: string) =>
+  ['ingreso-uti', 'ingreso-clinica', 'alta-uti', 'alta-clinica'].includes(tipo)
+
 const PROMPTS: Record<string, string> = {
-  'evolucion-uti': `Sos un médico de UTI escribiendo una evolución clínica diaria. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets, solo valores ANORMALES del laboratorio, no explicar valores normales, no hacer análisis académico. Integrá dictado, labs e imágenes en forma concisa. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'evolucion-uti': `Sos un médico especialista en Terapia Intensiva escribiendo una evolución clínica diaria. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets, solo valores relevantes o alterados. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'evolucion-clinica': `Sos un médico clínico escribiendo una evolución diaria de sala. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets, solo valores ANORMALES, no explicar valores normales, no hacer análisis académico. Integrá dictado, labs e imágenes en forma concisa. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'evolucion-clinica': `Sos un médico clínico escribiendo una evolución diaria de sala. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets, solo valores relevantes o alterados. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'ingreso-uti': `Sos un médico de UTI escribiendo una hoja de ingreso. Generá el texto en este formato exacto, cada ítem en una línea separada:
-Motivo de ingreso: [una oración]
-Enfermedad actual: [una o dos oraciones]
-Antecedentes: [solo los relevantes]
-Examen físico: [solo datos positivos]
-Laboratorio: [solo valores alterados con números]
-Estudios complementarios: [si hay]
-Diagnóstico presuntivo: [diagnóstico principal]
-Plan: [acciones concretas]
-Sin análisis académico, sin repetir datos. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'ingreso-uti': `Sos un médico especialista en Terapia Intensiva escribiendo una hoja de ingreso a UTI. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+{
+  "Enfermedad actual": "texto",
+  "Antecedentes Patológicos": "texto",
+  "Antecedentes Quirúrgicos": "texto",
+  "Examen físico": "texto",
+  "Diagnóstico de Ingreso": "texto",
+  "Exámenes Complementarios": "texto",
+  "Interconsultas al ingreso": "texto o vacío",
+  "Plan terapéutico inicial": "texto"
+}
+Cada sección: 1-2 oraciones concisas, solo datos positivos o alterados. Sin análisis académico.`,
 
-  'alta-uti': `Sos un médico de UTI escribiendo un alta. Generá el texto en este formato exacto, cada ítem en una línea separada:
-Resumen de internación: [una o dos oraciones]
-Evolución: [una oración]
-Laboratorio de egreso: [solo valores alterados]
-Diagnósticos de egreso: [listado]
-Indicaciones: [medicación y controles concretos]
-Sin análisis académico. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'ingreso-clinica': `Sos un médico clínico escribiendo una hoja de ingreso a clínica médica. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+{
+  "Enfermedad actual": "texto",
+  "Antecedentes Patológicos": "texto",
+  "Antecedentes Quirúrgicos": "texto",
+  "Antecedentes Obstétricos": "texto o vacío",
+  "Examen físico": "texto",
+  "Diagnóstico de Ingreso": "texto",
+  "Exámenes Complementarios": "texto",
+  "Interconsultas al ingreso": "texto o vacío",
+  "Plan terapéutico inicial": "texto"
+}
+Cada sección: 1-2 oraciones concisas, solo datos positivos o alterados. Sin análisis académico.`,
 
-  'ingreso-clinica': `Sos un médico clínico escribiendo una hoja de ingreso. Generá el texto en este formato exacto, cada ítem en una línea separada:
-Motivo de ingreso: [una oración]
-Enfermedad actual: [una o dos oraciones]
-Antecedentes: [solo los relevantes]
-Examen físico: [solo datos positivos]
-Laboratorio: [solo valores alterados con números]
-Estudios complementarios: [si hay]
-Diagnóstico presuntivo: [diagnóstico principal]
-Plan: [acciones concretas]
-Sin análisis académico, sin repetir datos. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'alta-uti': `Sos un médico especialista en Terapia Intensiva escribiendo un alta de UTI. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+{
+  "Evolución": "texto",
+  "Exámenes complementarios / Resultados patológicos": "texto",
+  "Tratamientos realizados": "texto",
+  "Evolución / Intercurrencias / Tratamiento de las mismas": "texto",
+  "Diagnóstico/s de Egreso": "texto",
+  "Indicaciones de Egreso": "texto"
+}
+Cada sección: 1-2 oraciones concisas. Sin análisis académico.`,
 
-  'alta-clinica': `Sos un médico clínico escribiendo un alta. Generá el texto en este formato exacto, cada ítem en una línea separada:
-Resumen de internación: [una o dos oraciones]
-Evolución: [una oración]
-Laboratorio de egreso: [solo valores alterados]
-Diagnósticos de egreso: [listado]
-Indicaciones: [medicación y controles concretos]
-Sin análisis académico. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'alta-clinica': `Sos un médico clínico escribiendo un alta de clínica médica. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+{
+  "Evolución": "texto",
+  "Exámenes complementarios / Resultados patológicos": "texto",
+  "Tratamientos realizados": "texto",
+  "Evolución / Intercurrencias / Tratamiento de las mismas": "texto",
+  "Diagnóstico/s de Egreso": "texto",
+  "Indicaciones de Egreso": "texto"
+}
+Cada sección: 1-2 oraciones concisas. Sin análisis académico.`,
 }
 
 async function extraerTextoPDF(buffer: Buffer): Promise<string> {
@@ -133,7 +147,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: 'claude-opus-4-5',
-        max_tokens: 800,
+        max_tokens: 1200,
         system: systemPrompt,
         messages,
       }),
@@ -143,9 +157,24 @@ export async function POST(req: NextRequest) {
     if (!response.ok) return NextResponse.json({ error: data.error?.message || 'Error API' }, { status: 500 })
 
     const cuerpo = data.content?.[0]?.text || ''
+
+    // Para ingreso y alta: parsear JSON con secciones
+    if (ES_SECCIONADO(tipo)) {
+      try {
+        const clean = cuerpo.replace(/```json|```/g, '').trim()
+        const secciones = JSON.parse(clean)
+        return NextResponse.json({ texto: secciones })
+      } catch {
+        // Si no parsea, devolver como texto plano
+        return NextResponse.json({ texto: { texto: cuerpo } })
+      }
+    }
+
+    // Para evoluciones: texto plano con header
     const header = HEADERS[tipo] || ''
     const texto = header ? `${header}\n\n${fecha}\n\n${cuerpo}` : cuerpo
     return NextResponse.json({ texto })
+
   } catch (err: any) {
     console.error('Error generar-evolucion:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
