@@ -13,17 +13,17 @@ const HEADERS: Record<string, string> = {
 }
 
 const PROMPTS: Record<string, string> = {
-  'evolucion-uti': `Sos un médico especialista en Terapia Intensiva. Generá una evolución clínica narrativa y concisa para UTI. Integrá los datos disponibles: laboratorio, monitor, respirador, imágenes y dictado. Escribí en prosa continua, sin bullets ni títulos. Mencioná solo valores relevantes o alterados. Máximo 5 oraciones breves. Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'evolucion-uti': `Sos un médico de UTI escribiendo una evolución clínica diaria. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets, solo valores ANORMALES del laboratorio, no explicar valores normales, no hacer análisis académico. Integrá dictado, labs e imágenes en forma concisa. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'evolucion-clinica': `Sos un médico clínico. Generá una evolución clínica narrativa y concisa para sala de clínica médica. Integrá los datos disponibles. Escribí en prosa continua, sin bullets ni títulos. Mencioná solo valores relevantes o alterados. Máximo 5 oraciones breves. Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'evolucion-clinica': `Sos un médico clínico escribiendo una evolución diaria de sala. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets, solo valores ANORMALES, no explicar valores normales, no hacer análisis académico. Integrá dictado, labs e imágenes en forma concisa. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'ingreso-uti': `Sos un médico especialista en Terapia Intensiva. Generá una hoja de ingreso a UTI narrativa y concisa. Incluí: motivo de ingreso, enfermedad actual, antecedentes relevantes, examen físico con datos positivos, laboratorio, diagnóstico presuntivo y plan inicial. Prosa continua sin bullets, sin repetir datos. Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'ingreso-uti': `Sos un médico de UTI escribiendo una hoja de ingreso. Escribí UN PÁRRAFO ÚNICO y conciso que incluya: motivo de ingreso, enfermedad actual, antecedentes relevantes, examen físico positivo, laboratorio alterado, diagnóstico y plan. Sin bullets, sin títulos, sin repetir datos. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'alta-uti': `Sos un médico especialista en Terapia Intensiva. Generá el alta de UTI en forma concisa. Incluí: resumen breve de internación, evolución, laboratorio de egreso, diagnósticos e indicaciones al alta. Prosa continua sin bullets. Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'alta-uti': `Sos un médico de UTI escribiendo un alta. Escribí UN PÁRRAFO ÚNICO y conciso que incluya: resumen de internación, evolución, labs de egreso alterados, diagnósticos de egreso e indicaciones. Sin bullets, sin títulos. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'ingreso-clinica': `Sos un médico clínico. Generá una hoja de ingreso a clínica médica narrativa y concisa. Incluí: motivo de ingreso, enfermedad actual, antecedentes relevantes, examen físico, estudios, diagnóstico presuntivo y plan inicial. Prosa continua sin bullets. Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'ingreso-clinica': `Sos un médico clínico escribiendo una hoja de ingreso. Escribí UN PÁRRAFO ÚNICO y conciso que incluya: motivo de ingreso, enfermedad actual, antecedentes relevantes, examen físico positivo, estudios alterados, diagnóstico y plan. Sin bullets, sin títulos, sin repetir datos. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 
-  'alta-clinica': `Sos un médico clínico. Generá el alta de clínica médica en forma concisa. Incluí: resumen breve de internación, evolución, laboratorio de egreso, diagnósticos e indicaciones al alta con medicación. Prosa continua sin bullets. Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+  'alta-clinica': `Sos un médico clínico escribiendo un alta. Escribí UN PÁRRAFO ÚNICO y conciso que incluya: resumen de internación, evolución, labs de egreso alterados, diagnósticos de egreso e indicaciones con medicación. Sin bullets, sin títulos. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
 }
 
 async function extraerTextoPDF(buffer: Buffer): Promise<string> {
@@ -68,56 +68,4 @@ export async function POST(req: NextRequest) {
       textoImagenes = await extraerTextoPDF(buf)
     }
 
-    const systemPrompt = PROMPTS[tipo] || PROMPTS['evolucion-clinica']
-    const fecha = fechaParam || new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-
-    let userContent = `Fecha: ${fecha}\n\n`
-    if (dictado) userContent += `DICTADO DEL MÉDICO:\n${dictado}\n\n`
-    if (textoLab) userContent += `LABORATORIO (AVlab):\n${textoLab}\n\n`
-    if (textoImagenes) userContent += `INFORME DE IMÁGENES:\n${textoImagenes}\n\n`
-    if (fotos.length > 0) userContent += `[Se adjuntan ${fotos.length} imagen(es): monitor, respirador y/o informes impresos]\n\n`
-    userContent += 'Generá la evolución clínica completa integrando todos los datos anteriores.'
-
-    const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) return NextResponse.json({ error: 'API key no configurada' }, { status: 500 })
-
-    const messages: any[] = []
-    if (fotos.length > 0) {
-      const contentParts: any[] = []
-      for (const foto of fotos) {
-        const { base64, mimeType } = await imagenABase64(foto)
-        contentParts.push({ type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } })
-      }
-      contentParts.push({ type: 'text', text: userContent })
-      messages.push({ role: 'user', content: contentParts })
-    } else {
-      messages.push({ role: 'user', content: userContent })
-    }
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-5',
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages,
-      }),
-    })
-
-    const data = await response.json()
-    if (!response.ok) return NextResponse.json({ error: data.error?.message || 'Error API' }, { status: 500 })
-
-    const cuerpo = data.content?.[0]?.text || ''
-    const header = HEADERS[tipo] || ''
-    const texto = header ? `${header}\n\n${fecha}\n\n${cuerpo}` : cuerpo
-    return NextResponse.json({ texto })
-  } catch (err: any) {
-    console.error('Error generar-evolucion:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
-  }
-}
+    const systemPrompt = PROMPTS[tipo] || PROMPTS
