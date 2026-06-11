@@ -13,12 +13,12 @@ export type TipoDocumento =
   | null
 
 const TIPOS = [
-  { id: 'evolucion-uti', label: 'Evolución UTI', icon: '🔴', color: 'bg-amber-50 border-amber-300 hover:bg-amber-100' },
-  { id: 'evolucion-clinica', label: 'Evolución Clínica Médica', icon: '🟢', color: 'bg-emerald-50 border-emerald-300 hover:bg-emerald-100' },
-  { id: 'ingreso-uti', label: 'Ingreso UTI', icon: '🔺', color: 'bg-red-50 border-red-300 hover:bg-red-100' },
-  { id: 'alta-uti', label: 'Alta UTI', icon: '🔷', color: 'bg-sky-50 border-sky-300 hover:bg-sky-100' },
-  { id: 'ingreso-clinica', label: 'Ingreso Clínica Médica', icon: '🟣', color: 'bg-violet-50 border-violet-300 hover:bg-violet-100' },
-  { id: 'alta-clinica', label: 'Alta Clínica Médica', icon: '🟤', color: 'bg-teal-50 border-teal-300 hover:bg-teal-100' },
+  { id: 'evolucion-uti', label: 'Evolución UTI', icon: '🫀', color: 'bg-amber-50 border-amber-300 hover:bg-amber-100' },
+  { id: 'evolucion-clinica', label: 'Evolución Clínica Médica', icon: '📋', color: 'bg-emerald-50 border-emerald-300 hover:bg-emerald-100' },
+  { id: 'ingreso-uti', label: 'Ingreso UTI', icon: '🚨', color: 'bg-red-50 border-red-300 hover:bg-red-100' },
+  { id: 'alta-uti', label: 'Alta UTI', icon: '✅', color: 'bg-sky-50 border-sky-300 hover:bg-sky-100' },
+  { id: 'ingreso-clinica', label: 'Ingreso Clínica Médica', icon: '🏥', color: 'bg-violet-50 border-violet-300 hover:bg-violet-100' },
+  { id: 'alta-clinica', label: 'Alta Clínica Médica', icon: '🏠', color: 'bg-teal-50 border-teal-300 hover:bg-teal-100' },
 ]
 
 const USUARIO_VALIDO = 'fernando'
