@@ -68,4 +68,56 @@ export async function POST(req: NextRequest) {
       textoImagenes = await extraerTextoPDF(buf)
     }
 
-    const systemPrompt = PROMPTS[tipo] || PROMPTS
+    const systemPrompt = PROMPTS[tipo] || PROMPTS['evolucion-clinica']
+    const fecha = fechaParam || new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+    let userContent = `Fecha: ${fecha}\n\n`
+    if (dictado) userContent += `DICTADO DEL MÉDICO:\n${dictado}\n\n`
+    if (textoLab) userContent += `LABORATORIO:\n${textoLab}\n\n`
+    if (textoImagenes) userContent += `IMÁGENES:\n${textoImagenes}\n\n`
+    if (fotos.length > 0) userContent += `[${fotos.length} foto(s) adjunta(s): monitor, respirador o informes]\n\n`
+    userContent += 'IMPORTANTE: Seguí estrictamente las reglas del sistema. Respuesta breve y concisa.'
+
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) return NextResponse.json({ error: 'API key no configurada' }, { status: 500 })
+
+    const messages: any[] = []
+    if (fotos.length > 0) {
+      const contentParts: any[] = []
+      for (const foto of fotos) {
+        const { base64, mimeType } = await imagenABase64(foto)
+        contentParts.push({ type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } })
+      }
+      contentParts.push({ type: 'text', text: userContent })
+      messages.push({ role: 'user', content: contentParts })
+    } else {
+      messages.push({ role: 'user', content: userContent })
+    }
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-5',
+        max_tokens: 600,
+        system: systemPrompt,
+        messages,
+      }),
+    })
+
+    const data = await response.json()
+    if (!response.ok) return NextResponse.json({ error: data.error?.message || 'Error API' }, { status: 500 })
+
+    const cuerpo = data.content?.[0]?.text || ''
+    const header = HEADERS[tipo] || ''
+    const texto = header ? `${header}\n\n${fecha}\n\n${cuerpo}` : cuerpo
+    return NextResponse.json({ texto })
+  } catch (err: any) {
+    console.error('Error generar-evolucion:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
