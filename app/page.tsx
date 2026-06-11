@@ -30,8 +30,10 @@ const LABELS: Record<string, string> = {
   'alta-clinica': 'Alta Clínica Médica',
 }
 
-const USUARIO_VALIDO = 'fernando'
-const PASSWORD_VALIDA = 'clinicevol2024'
+const USUARIOS: Record<string, string> = {
+  'fernando': 'clinicevol2024',
+  'luciano': 'luciano2024',
+}
 
 function HistorialPanel({ usuario, onClose }: { usuario: string; onClose: () => void }) {
   const [items, setItems] = useState<any[]>([])
@@ -159,7 +161,7 @@ export default function Home() {
   const [mostrarHistorial, setMostrarHistorial] = useState(false)
 
   function handleLogin() {
-    if (usuario === USUARIO_VALIDO && password === PASSWORD_VALIDA) {
+    if (USUARIOS[usuario] && USUARIOS[usuario] === password) {
       setLogueado(true)
       setErrorLogin('')
     } else {
