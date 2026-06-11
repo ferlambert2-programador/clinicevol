@@ -5,6 +5,7 @@ import type { TipoDocumento } from '../page'
 
 interface Props {
   tipo: TipoDocumento
+  usuario: string
   onVolver: () => void
 }
 
@@ -33,24 +34,32 @@ function isoToDisplay(iso: string) {
   return `${d}/${m}/${y}`
 }
 
-function guardarEnHistorial(tipo: TipoDocumento, texto: string) {
+async function guardarEnSupabase(usuario: string, tipo: TipoDocumento, contenido: Record<string, string>) {
   try {
-    const item = { id: Date.now(), timestamp: new Date().toISOString(), tipo, texto }
-    const prev = JSON.parse(localStorage.getItem('clinicevol_historial') || '[]')
-    const updated = [item, ...prev].slice(0, 10)
-    localStorage.setItem('clinicevol_historial', JSON.stringify(updated))
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    await fetch(`${url}/rest/v1/evoluciones`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': key!,
+        'Authorization': `Bearer ${key}`,
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({ usuario, tipo, contenido }),
+    })
   } catch {}
 }
 
-export default function EvolucionForm({ tipo, onVolver }: Props) {
+export default function EvolucionForm({ tipo, usuario, onVolver }: Props) {
   const [dictado, setDictado] = useState('')
   const [grabando, setGrabando] = useState(false)
   const [pdfLab, setPdfLab] = useState<File | null>(null)
   const [pdfImagenes, setPdfImagenes] = useState<File | null>(null)
   const [fotosExtra, setFotosExtra] = useState<File[]>([])
-  const [resultado, setResultado] = useState('')
+  const [resultado, setResultado] = useState<Record<string, string> | null>(null)
   const [cargando, setCargando] = useState(false)
-  const [copiado, setCopiado] = useState(false)
+  const [copiado, setCopiado] = useState<string | null>(null)
   const [fecha, setFecha] = useState(todayISO())
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -129,7 +138,7 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
       return
     }
     setCargando(true)
-    setResultado('')
+    setResultado(null)
     try {
       const fd = new FormData()
       fd.append('tipo', tipo || '')
@@ -142,9 +151,19 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
       const res = await fetch('/api/generar-evolucion', { method: 'POST', body: fd })
       const data = await res.json()
       if (data.texto) {
-        setResultado(data.texto)
-        guardarEnHistorial(tipo, data.texto)
-      } else alert('Error al generar evolución: ' + (data.error || 'desconocido'))
+        // Para evoluciones: resultado es texto plano
+        // Para ingreso/alta: resultado es objeto con secciones
+        let contenido: Record<string, string>
+        if (typeof data.texto === 'string') {
+          contenido = { texto: data.texto }
+        } else {
+          contenido = data.texto
+        }
+        setResultado(contenido)
+        await guardarEnSupabase(usuario, tipo, contenido)
+      } else {
+        alert('Error al generar evolución: ' + (data.error || 'desconocido'))
+      }
     } catch {
       alert('Error de conexión')
     } finally {
@@ -152,10 +171,10 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
     }
   }
 
-  const copiar = async () => {
-    await navigator.clipboard.writeText(resultado)
-    setCopiado(true)
-    setTimeout(() => setCopiado(false), 2000)
+  const copiar = async (texto: string, key: string) => {
+    await navigator.clipboard.writeText(texto)
+    setCopiado(key)
+    setTimeout(() => setCopiado(null), 2000)
   }
 
   const esUti = ES_UTI(tipo)
@@ -164,24 +183,24 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
     <div className="space-y-4">
       <div className="card flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center text-xl">
-          {esUti ? '🫀' : '🩺'}
+          {esUti ? '🔴' : '🟢'}
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="font-bold text-slate-800">{LABELS[tipo || '']}</h2>
+          <h2 className="font-bold text-slate-800">{LABELS[tipo || ''] || ''}</h2>
           <div className="flex items-center gap-2 mt-1">
             <label className="text-xs text-slate-500 font-medium whitespace-nowrap">📅 Fecha:</label>
             <input
               type="date"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
-              className="text-xs text-slate-700 border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand-400 focus:border-brand-400"
+              className="text-xs text-slate-700 border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
         </div>
       </div>
 
       <div className="card space-y-3">
-        <h3 className="font-semibold text-slate-700">🎙️ Dictado</h3>
+        <h3 className="font-semibold text-slate-700">🎙 Dictado</h3>
         <button
           onClick={toggleGrabacion}
           className={`w-full py-4 rounded-xl font-semibold text-white transition-all duration-200 active:scale-95 ${
@@ -212,7 +231,7 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
       </div>
 
       <div className="card space-y-3">
-        <h3 className="font-semibold text-slate-700">🔬 Informe de imágenes (PDF Sinclair)</h3>
+        <h3 className="font-semibold text-slate-700">🩻 Informe de imágenes (PDF Sinclair)</h3>
         <label className="block w-full border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50 transition-colors">
           <input type="file" accept=".pdf" className="hidden" onChange={(e) => setPdfImagenes(e.target.files?.[0] || null)} />
           {pdfImagenes ? (
@@ -254,7 +273,7 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
       <button
         onClick={generarEvolucion}
         disabled={cargando}
-        className="w-full py-4 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-300 text-white font-bold rounded-2xl transition-all duration-200 active:scale-95 text-base shadow-md"
+        className="w-full py-4 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-300 text-white font-bold rounded-2xl transition-all duration-200"
       >
         {cargando ? '⏳ Generando evolución...' : '✨ Generar evolución'}
       </button>
@@ -262,19 +281,36 @@ export default function EvolucionForm({ tipo, onVolver }: Props) {
       {resultado && (
         <div className="card space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-slate-700">📄 Evolución generada</h3>
+            <h3 className="font-semibold text-slate-700">📄 Resultado</h3>
             <button
-              onClick={copiar}
+              onClick={() => copiar(Object.values(resultado).join('\n\n'), 'todo')}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-95 ${
-                copiado ? 'bg-green-500 text-white' : 'bg-brand-600 hover:bg-brand-700 text-white'
+                copiado === 'todo' ? 'bg-green-500 text-white' : 'bg-brand-600 hover:bg-brand-700 text-white'
               }`}
             >
-              {copiado ? '✅ ¡Copiado!' : '📋 Copiar'}
+              {copiado === 'todo' ? '✅ ¡Copiado!' : '📋 Copiar todo'}
             </button>
           </div>
-          <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-800 leading-relaxed whitespace-pre-wrap border border-slate-100">
-            {resultado}
-          </div>
+
+          {Object.entries(resultado).map(([key, valor]) => (
+            <div key={key} className="border border-slate-100 rounded-xl p-3 space-y-2">
+              {key !== 'texto' && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{key}</span>
+                  <button
+                    onClick={() => copiar(valor, key)}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      copiado === key ? 'bg-green-500 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    {copiado === key ? '✅ Copiado' : '📋 Copiar'}
+                  </button>
+                </div>
+              )}
+              <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">{valor}</p>
+            </div>
+          ))}
+
           <p className="text-xs text-slate-400 text-center">Copiá el texto y pegalo en el sistema de la clínica</p>
         </div>
       )}
