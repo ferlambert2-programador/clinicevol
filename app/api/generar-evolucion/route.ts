@@ -12,15 +12,21 @@ const HEADERS: Record<string, string> = {
   'alta-clinica': 'ALTA DE CLÍNICA MÉDICA',
 }
 
+const FIRMAS: Record<string, string> = {
+  'fernando': 'Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740',
+  'luciano': 'Dr. Luciano Di Luca Dones - Médico Especialista en Terapia Intensiva - MP 116.434',
+}
+
 const ES_SECCIONADO = (tipo: string) =>
   ['ingreso-uti', 'ingreso-clinica', 'alta-uti', 'alta-clinica'].includes(tipo)
 
-const PROMPTS: Record<string, string> = {
-  'evolucion-uti': `Sos un médico especialista en Terapia Intensiva escribiendo una evolución clínica diaria. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets, solo valores relevantes o alterados. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+function getPrompts(firma: string): Record<string, string> {
+  return {
+    'evolucion-uti': `Sos un médico especialista en Terapia Intensiva escribiendo una evolución clínica diaria. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets, solo valores relevantes o alterados. Terminá con: "${firma}"`,
 
-  'evolucion-clinica': `Sos un médico clínico escribiendo una evolución diaria de sala. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets, solo valores relevantes o alterados. Terminá con: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+    'evolucion-clinica': `Sos un médico clínico escribiendo una evolución diaria de sala. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets, solo valores relevantes o alterados. Terminá con: "${firma}"`,
 
-  'ingreso-uti': `Sos un médico especialista en Terapia Intensiva escribiendo una hoja de ingreso a UTI. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+    'ingreso-uti': `Sos un médico especialista en Terapia Intensiva escribiendo una hoja de ingreso a UTI. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
 {
   "Enfermedad actual": "texto",
   "Antecedentes Patológicos": "texto",
@@ -33,7 +39,7 @@ const PROMPTS: Record<string, string> = {
 }
 Cada sección: 1-2 oraciones concisas, solo datos positivos o alterados. Sin análisis académico.`,
 
-  'ingreso-clinica': `Sos un médico clínico escribiendo una hoja de ingreso a clínica médica. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+    'ingreso-clinica': `Sos un médico clínico escribiendo una hoja de ingreso a clínica médica. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
 {
   "Enfermedad actual": "texto",
   "Antecedentes Patológicos": "texto",
@@ -47,7 +53,7 @@ Cada sección: 1-2 oraciones concisas, solo datos positivos o alterados. Sin an�
 }
 Cada sección: 1-2 oraciones concisas, solo datos positivos o alterados. Sin análisis académico.`,
 
-  'alta-uti': `Sos un médico especialista en Terapia Intensiva escribiendo un alta de UTI. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+    'alta-uti': `Sos un médico especialista en Terapia Intensiva escribiendo un alta de UTI. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
 {
   "Evolución": "texto",
   "Exámenes complementarios / Resultados patológicos": "texto",
@@ -58,7 +64,7 @@ Cada sección: 1-2 oraciones concisas, solo datos positivos o alterados. Sin an�
 }
 Cada sección: 1-2 oraciones concisas. Sin análisis académico.`,
 
-  'alta-clinica': `Sos un médico clínico escribiendo un alta de clínica médica. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+    'alta-clinica': `Sos un médico clínico escribiendo un alta de clínica médica. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
 {
   "Evolución": "texto",
   "Exámenes complementarios / Resultados patológicos": "texto",
@@ -68,6 +74,7 @@ Cada sección: 1-2 oraciones concisas. Sin análisis académico.`,
   "Indicaciones de Egreso": "texto"
 }
 Cada sección: 1-2 oraciones concisas. Sin análisis académico.`,
+  }
 }
 
 async function extraerTextoPDF(buffer: Buffer): Promise<string> {
@@ -91,6 +98,7 @@ export async function POST(req: NextRequest) {
     const tipo = fd.get('tipo') as string
     const dictado = fd.get('dictado') as string || ''
     const fechaParam = fd.get('fecha') as string | null
+    const usuario = fd.get('usuario') as string || 'fernando'
 
     const pdfLab = fd.get('pdfLab') as File | null
     const pdfImagenes = fd.get('pdfImagenes') as File | null
@@ -112,6 +120,8 @@ export async function POST(req: NextRequest) {
       textoImagenes = await extraerTextoPDF(buf)
     }
 
+    const firma = FIRMAS[usuario] || FIRMAS['fernando']
+    const PROMPTS = getPrompts(firma)
     const systemPrompt = PROMPTS[tipo] || PROMPTS['evolucion-clinica']
     const fecha = fechaParam || new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
@@ -158,19 +168,16 @@ export async function POST(req: NextRequest) {
 
     const cuerpo = data.content?.[0]?.text || ''
 
-    // Para ingreso y alta: parsear JSON con secciones
     if (ES_SECCIONADO(tipo)) {
       try {
         const clean = cuerpo.replace(/```json|```/g, '').trim()
         const secciones = JSON.parse(clean)
         return NextResponse.json({ texto: secciones })
       } catch {
-        // Si no parsea, devolver como texto plano
         return NextResponse.json({ texto: { texto: cuerpo } })
       }
     }
 
-    // Para evoluciones: texto plano con header
     const header = HEADERS[tipo] || ''
     const texto = header ? `${header}\n\n${fecha}\n\n${cuerpo}` : cuerpo
     return NextResponse.json({ texto })
