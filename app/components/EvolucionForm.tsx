@@ -142,6 +142,7 @@ export default function EvolucionForm({ tipo, usuario, onVolver }: Props) {
     try {
       const fd = new FormData()
       fd.append('tipo', tipo || '')
+      fd.append('usuario', usuario)
       fd.append('dictado', dictado)
       fd.append('fecha', isoToDisplay(fecha))
       if (pdfLab) fd.append('pdfLab', pdfLab)
