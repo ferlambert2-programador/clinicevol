@@ -81,7 +81,11 @@ async function extraerTextoPDF(buffer: Buffer): Promise<string> {
   try {
     const pdfParse = (await import('pdf-parse')).default
     const data = await pdfParse(buffer)
-    return data.text
+    try {
+      return decodeURIComponent(data.text)
+    } catch {
+      return data.text
+    }
   } catch {
     return ''
   }
