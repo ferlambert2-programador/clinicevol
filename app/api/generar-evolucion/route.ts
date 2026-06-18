@@ -4,32 +4,77 @@ export const runtime = 'nodejs'
 export const maxDuration = 60
 
 const HEADERS: Record<string, string> = {
-  'evolucion-uti':    'EVOLUCIÓN DE TERAPIA INTENSIVA',
-  'evolucion-clinica':'EVOLUCIÓN DE CLÍNICA MÉDICA',
-  'ingreso-uti':      'INGRESO A TERAPIA INTENSIVA',
-  'ingreso-clinica':  'INGRESO A CLÍNICA MÉDICA',
-  'alta-uti':         'ALTA DE TERAPIA INTENSIVA',
-  'alta-clinica':     'ALTA DE CLÍNICA MÉDICA',
+  'evolucion-uti': 'EVOLUCIÓN DE TERAPIA INTENSIVA',
+  'evolucion-clinica': 'EVOLUCIÓN DE CLÍNICA MÉDICA',
+  'ingreso-uti': 'INGRESO A TERAPIA INTENSIVA',
+  'alta-uti': 'ALTA DE TERAPIA INTENSIVA',
+  'ingreso-clinica': 'INGRESO A CLÍNICA MÉDICA',
+  'alta-clinica': 'ALTA DE CLÍNICA MÉDICA',
 }
 
-const PROMPTS: Record<string, string> = {
-  'evolucion-uti': `Tu única tarea es mejorar la redacción del dictado del médico y transcribir los datos de laboratorio, monitor y respirador que se adjunten, integrándolos en el texto. No agregues diagnósticos, conclusiones clínicas, interpretaciones ni información que no esté explícitamente en el dictado o en los estudios adjuntos. Respetá exactamente lo que el médico dijo: no cambies el sentido, no agregues ni quites hallazgos, no sugieras diagnósticos diferenciales ni planes. Redactá en prosa fluida, sin bullets ni títulos, como una evolución médica real. Si algo no está en el dictado ni en los estudios, no lo incluyas.
-Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+const FIRMAS: Record<string, string> = {
+  'fernando': 'Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740',
+  'luciano': 'Dr. Luciano Di Luca Dones - Médico Especialista en Terapia Intensiva - MP 116.434',
+}
 
-  'evolucion-clinica': `Tu única tarea es mejorar la redacción del dictado del médico y transcribir los datos de laboratorio e imágenes que se adjunten, integrándolos en el texto. No agregues diagnósticos, conclusiones clínicas, interpretaciones ni información que no esté explícitamente en el dictado o en los estudios adjuntos. Respetá exactamente lo que el médico dijo: no cambies el sentido, no agregues ni quites hallazgos, no sugieras diagnósticos diferenciales ni planes. Redactá en prosa fluida, sin bullets ni títulos, como una evolución médica real. Si algo no está en el dictado ni en los estudios, no lo incluyas.
-Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+const ES_SECCIONADO = (tipo: string) =>
+  ['ingreso-uti', 'ingreso-clinica', 'alta-uti', 'alta-clinica'].includes(tipo)
 
-  'ingreso-uti': `Tu única tarea es mejorar la redacción del dictado del médico y transcribir los datos de laboratorio e imágenes que se adjunten, integrándolos en el texto con el orden típico de un ingreso (motivo, enfermedad actual, antecedentes, examen físico, estudios, diagnóstico presuntivo, plan). No agregues información que no esté en el dictado o en los estudios adjuntos. No saques conclusiones propias ni sugieras diagnósticos o tratamientos que el médico no haya mencionado. Redactá en prosa fluida, sin bullets ni títulos.
-Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+function getPrompts(firma: string): Record<string, string> {
+  return {
+    'evolucion-uti': `Sos un médico especialista en Terapia Intensiva escribiendo una evolución clínica diaria. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets, solo valores relevantes o alterados. No des opiniones ni análisis, solo describí los datos clínicos. Terminá con: "${firma}"`,
 
-  'alta-uti': `Tu única tarea es mejorar la redacción del dictado del médico y transcribir los datos de laboratorio que se adjunten, integrándolos en el texto con el orden típico de un alta (resumen, evolución, laboratorio de egreso, diagnósticos, plan al alta). No agregues información que no esté en el dictado o en los estudios adjuntos. No saques conclusiones propias ni sugieras indicaciones que el médico no haya mencionado. Redactá en prosa fluida, sin bullets ni títulos.
-Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+    'evolucion-clinica': `Sos un médico clínico escribiendo una evolución diaria de sala. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets, solo valores relevantes o alterados. No des opiniones ni análisis, solo describí los datos clínicos. Terminá con: "${firma}"`,
 
-  'ingreso-clinica': `Tu única tarea es mejorar la redacción del dictado del médico y transcribir los datos de laboratorio e imágenes que se adjunten, integrándolos en el texto con el orden típico de un ingreso (motivo, enfermedad actual, antecedentes, examen físico, estudios, diagnóstico presuntivo, plan). No agregues información que no esté en el dictado o en los estudios adjuntos. No saques conclusiones propias ni sugieras diagnósticos o tratamientos que el médico no haya mencionado. Redactá en prosa fluida, sin bullets ni títulos.
-Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+    'ingreso-uti': `Sos un médico especialista en Terapia Intensiva escribiendo una hoja de ingreso a UTI. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+{
+  "Enfermedad actual": "texto",
+  "Antecedentes Patológicos": "texto",
+  "Antecedentes Quirúrgicos": "texto",
+  "Examen físico": "texto",
+  "Diagnóstico de Ingreso": "texto",
+  "Exámenes Complementarios": "texto",
+  "Interconsultas al ingreso": "texto o vacío",
+  "Plan terapéutico inicial": "texto"
+}
+REGLAS: Cada sección 1-2 oraciones concisas. Solo datos positivos o alterados. En Exámenes Complementarios describí los valores literalmente sin interpretación ni análisis, solo los números y datos. Sin opiniones. Sin análisis académico. Si un campo no tiene datos poné "No refiere".`,
 
-  'alta-clinica': `Tu única tarea es mejorar la redacción del dictado del médico y transcribir los datos de laboratorio que se adjunten, integrándolos en el texto con el orden típico de un alta (resumen, evolución, laboratorio de egreso, diagnósticos, indicaciones al alta con medicación). No agregues información que no esté en el dictado o en los estudios adjuntos. No saques conclusiones propias ni sugieras indicaciones que el médico no haya mencionado. Redactá en prosa fluida, sin bullets ni títulos.
-Al final agregá: "Dr. Fernando Lambert - Médico Especialista en Terapia Intensiva - MP 115.740"`,
+    'ingreso-clinica': `Sos un médico clínico escribiendo una hoja de ingreso a clínica médica. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+{
+  "Enfermedad actual": "texto",
+  "Antecedentes Patológicos": "texto",
+  "Antecedentes Quirúrgicos": "texto",
+  "Antecedentes Obstétricos": "texto o vacío",
+  "Examen físico": "texto",
+  "Diagnóstico de Ingreso": "texto",
+  "Exámenes Complementarios": "texto",
+  "Interconsultas al ingreso": "texto o vacío",
+  "Plan terapéutico inicial": "texto"
+}
+REGLAS: Cada sección 1-2 oraciones concisas. Solo datos positivos o alterados. En Exámenes Complementarios describí los valores literalmente sin interpretación ni análisis, solo los números y datos. Sin opiniones. Sin análisis académico. Si un campo no tiene datos poné "No refiere".`,
+
+    'alta-uti': `Sos un médico especialista en Terapia Intensiva escribiendo un alta de UTI. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+{
+  "Evolución": "texto",
+  "Exámenes complementarios / Resultados patológicos": "texto",
+  "Tratamientos realizados": "texto",
+  "Evolución / Intercurrencias / Tratamiento de las mismas": "texto",
+  "Diagnóstico/s de Egreso": "texto",
+  "Indicaciones de Egreso": "texto"
+}
+REGLAS: Cada sección 1-2 oraciones concisas. En Exámenes Complementarios describí los valores literalmente sin interpretación ni análisis, solo los números y datos. Sin opiniones. Sin análisis académico. Si un campo no tiene datos poné "No refiere".`,
+
+    'alta-clinica': `Sos un médico clínico escribiendo un alta de clínica médica. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+{
+  "Evolución": "texto",
+  "Exámenes complementarios / Resultados patológicos": "texto",
+  "Tratamientos realizados": "texto",
+  "Evolución / Intercurrencias / Tratamiento de las mismas": "texto",
+  "Diagnóstico/s de Egreso": "texto",
+  "Indicaciones de Egreso": "texto"
+}
+REGLAS: Cada sección 1-2 oraciones concisas. En Exámenes Complementarios describí los valores literalmente sin interpretación ni análisis, solo los números y datos. Sin opiniones. Sin análisis académico. Si un campo no tiene datos poné "No refiere".`,
+  }
 }
 
 async function extraerTextoPDF(buffer: Buffer): Promise<string> {
@@ -44,10 +89,7 @@ async function extraerTextoPDF(buffer: Buffer): Promise<string> {
 
 async function imagenABase64(file: File): Promise<{ base64: string; mimeType: string }> {
   const buffer = Buffer.from(await file.arrayBuffer())
-  return {
-    base64: buffer.toString('base64'),
-    mimeType: file.type || 'image/jpeg',
-  }
+  return { base64: buffer.toString('base64'), mimeType: file.type || 'image/jpeg' }
 }
 
 export async function POST(req: NextRequest) {
@@ -56,15 +98,14 @@ export async function POST(req: NextRequest) {
     const tipo = fd.get('tipo') as string
     const dictado = fd.get('dictado') as string || ''
     const fechaParam = fd.get('fecha') as string | null
+    const usuario = fd.get('usuario') as string || 'fernando'
 
     const pdfLab = fd.get('pdfLab') as File | null
     const pdfImagenes = fd.get('pdfImagenes') as File | null
 
     const fotos: File[] = []
     for (const [key, val] of Array.from(fd.entries())) {
-      if (key.startsWith('foto_') && val instanceof File) {
-        fotos.push(val)
-      }
+      if (key.startsWith('foto_') && val instanceof File) fotos.push(val)
     }
 
     let textoLab = ''
@@ -74,39 +115,32 @@ export async function POST(req: NextRequest) {
       const buf = Buffer.from(await pdfLab.arrayBuffer())
       textoLab = await extraerTextoPDF(buf)
     }
-
     if (pdfImagenes) {
       const buf = Buffer.from(await pdfImagenes.arrayBuffer())
       textoImagenes = await extraerTextoPDF(buf)
     }
 
+    const firma = FIRMAS[usuario] || FIRMAS['fernando']
+    const PROMPTS = getPrompts(firma)
     const systemPrompt = PROMPTS[tipo] || PROMPTS['evolucion-clinica']
-    const fecha = fechaParam || new Date().toLocaleDateString('es-AR', {
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    })
+    const fecha = fechaParam || new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
     let userContent = `Fecha: ${fecha}\n\n`
     if (dictado) userContent += `DICTADO DEL MÉDICO:\n${dictado}\n\n`
-    if (textoLab) userContent += `LABORATORIO (AVlab):\n${textoLab}\n\n`
-    if (textoImagenes) userContent += `INFORME DE IMÁGENES:\n${textoImagenes}\n\n`
-    if (fotos.length > 0) userContent += `[Se adjuntan ${fotos.length} imagen(es): monitor, respirador y/o informes impresos - analizalas e integrá los datos]\n\n`
-    userContent += 'Generá la evolución clínica completa integrando todos los datos anteriores.'
+    if (textoLab) userContent += `LABORATORIO:\n${textoLab}\n\n`
+    if (textoImagenes) userContent += `IMÁGENES:\n${textoImagenes}\n\n`
+    if (fotos.length > 0) userContent += `[${fotos.length} foto(s) adjunta(s): monitor, respirador o informes]\n\n`
+    userContent += 'IMPORTANTE: Seguí estrictamente el formato indicado. Respuesta concisa. Sin análisis ni opiniones.'
 
     const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'API key no configurada' }, { status: 500 })
-    }
+    if (!apiKey) return NextResponse.json({ error: 'API key no configurada' }, { status: 500 })
 
     const messages: any[] = []
-
     if (fotos.length > 0) {
       const contentParts: any[] = []
       for (const foto of fotos) {
         const { base64, mimeType } = await imagenABase64(foto)
-        contentParts.push({
-          type: 'image',
-          source: { type: 'base64', media_type: mimeType, data: base64 },
-        })
+        contentParts.push({ type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } })
       }
       contentParts.push({ type: 'text', text: userContent })
       messages.push({ role: 'user', content: contentParts })
@@ -123,21 +157,31 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: 'claude-opus-4-5',
-        max_tokens: 2048,
+        max_tokens: 1200,
         system: systemPrompt,
         messages,
       }),
     })
 
     const data = await response.json()
-    if (!response.ok) {
-      return NextResponse.json({ error: data.error?.message || 'Error API' }, { status: 500 })
-    }
+    if (!response.ok) return NextResponse.json({ error: data.error?.message || 'Error API' }, { status: 500 })
 
     const cuerpo = data.content?.[0]?.text || ''
+
+    if (ES_SECCIONADO(tipo)) {
+      try {
+        const clean = cuerpo.replace(/```json|```/g, '').trim()
+        const secciones = JSON.parse(clean)
+        return NextResponse.json({ texto: secciones })
+      } catch {
+        return NextResponse.json({ texto: { texto: cuerpo } })
+      }
+    }
+
     const header = HEADERS[tipo] || ''
-    const texto = header ? `${header}\n${fecha}\n\n${cuerpo}` : cuerpo
+    const texto = header ? `${header}\n\n${fecha}\n\n${cuerpo}` : cuerpo
     return NextResponse.json({ texto })
+
   } catch (err: any) {
     console.error('Error generar-evolucion:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
