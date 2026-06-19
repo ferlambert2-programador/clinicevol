@@ -22,58 +22,58 @@ const ES_SECCIONADO = (tipo: string) =>
 
 function getPrompts(firma: string): Record<string, string> {
   return {
-    'evolucion-uti': `Sos un médico especialista en Terapia Intensiva escribiendo una evolución clínica diaria. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets, solo valores relevantes o alterados. No des opiniones ni análisis, solo describí los datos clínicos. Terminá con: "${firma}"`,
+    'evolucion-uti': `Sos un médico especialista en Terapia Intensiva escribiendo una evolución clínica diaria. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets. Si hay datos de laboratorio, transcribilos literalmente con sus valores numéricos tal cual aparecen, sin interpretar ni calificar (no digas "levemente aumentado", "disminuido", etc.), solo el dato y su número. No des opiniones ni análisis clínico. Terminá con: "${firma}"`,
 
-    'evolucion-clinica': `Sos un médico clínico escribiendo una evolución diaria de sala. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets, solo valores relevantes o alterados. No des opiniones ni análisis, solo describí los datos clínicos. Terminá con: "${firma}"`,
+    'evolucion-clinica': `Sos un médico clínico escribiendo una evolución diaria de sala. REGLAS ESTRICTAS: máximo 4 oraciones, prosa sin bullets. Si hay datos de laboratorio, transcribilos literalmente con sus valores numéricos tal cual aparecen, sin interpretar ni calificar (no digas "levemente aumentado", "disminuido", etc.), solo el dato y su número. No des opiniones ni análisis clínico. Terminá con: "${firma}"`,
 
-    'ingreso-uti': `Sos un médico especialista en Terapia Intensiva escribiendo una hoja de ingreso a UTI. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+    'ingreso-uti': `Sos un médico especialista en Terapia Intensiva escribiendo una hoja de ingreso a UTI. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin bloques de código, sin explicaciones — empezá la respuesta directo con { y terminá con }. El JSON debe tener exactamente estas claves:
 {
-  "Enfermedad actual": "incluí aquí el motivo de ingreso, resumen clínico del dictado, e integrá los valores de laboratorio relevantes o alterados en prosa",
+  "Enfermedad actual": "motivo de ingreso y resumen clínico del dictado. Si hay laboratorio, transcribilo literalmente con sus valores numéricos tal cual aparecen, sin interpretar ni calificar",
   "Antecedentes Patológicos": "texto",
   "Antecedentes Quirúrgicos": "texto",
   "Examen físico": "solo hallazgos positivos",
   "Diagnóstico de Ingreso": "diagnóstico principal",
-  "Exámenes Complementarios": "solo estudios de imágenes — describí literalmente los informes de Sinclair, cardiólogo u otros estudios complementarios sin interpretación",
+  "Exámenes Complementarios": "solo estudios de imágenes — transcribí literalmente los informes de Sinclair, cardiólogo u otros estudios complementarios sin interpretación",
   "Interconsultas al ingreso": "si hay, sino No refiere",
   "Plan terapéutico inicial": "acciones concretas"
 }
-REGLAS: Cada sección 1-2 oraciones concisas. Sin análisis académico. Sin opiniones. Si un campo no tiene datos poné "No refiere".`,
+REGLAS: Cada sección 1-2 oraciones concisas. Sin análisis académico. Sin opiniones ni calificativos sobre los valores. Si un campo no tiene datos poné "No refiere".`,
 
-    'ingreso-clinica': `Sos un médico clínico escribiendo una hoja de ingreso a clínica médica. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+    'ingreso-clinica': `Sos un médico clínico escribiendo una hoja de ingreso a clínica médica. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin bloques de código, sin explicaciones — empezá la respuesta directo con { y terminá con }. El JSON debe tener exactamente estas claves:
 {
-  "Enfermedad actual": "incluí aquí el motivo de ingreso, resumen clínico del dictado, e integrá los valores de laboratorio relevantes o alterados en prosa",
+  "Enfermedad actual": "motivo de ingreso y resumen clínico del dictado. Si hay laboratorio, transcribilo literalmente con sus valores numéricos tal cual aparecen, sin interpretar ni calificar",
   "Antecedentes Patológicos": "texto",
   "Antecedentes Quirúrgicos": "texto",
   "Antecedentes Obstétricos": "si corresponde, sino No refiere",
   "Examen físico": "solo hallazgos positivos",
   "Diagnóstico de Ingreso": "diagnóstico principal",
-  "Exámenes Complementarios": "solo estudios de imágenes — describí literalmente los informes de Sinclair, cardiólogo u otros estudios complementarios sin interpretación",
+  "Exámenes Complementarios": "solo estudios de imágenes — transcribí literalmente los informes de Sinclair, cardiólogo u otros estudios complementarios sin interpretación",
   "Interconsultas al ingreso": "si hay, sino No refiere",
   "Plan terapéutico inicial": "acciones concretas"
 }
-REGLAS: Cada sección 1-2 oraciones concisas. Sin análisis académico. Sin opiniones. Si un campo no tiene datos poné "No refiere".`,
+REGLAS: Cada sección 1-2 oraciones concisas. Sin análisis académico. Sin opiniones ni calificativos sobre los valores. Si un campo no tiene datos poné "No refiere".`,
 
-    'alta-uti': `Sos un médico especialista en Terapia Intensiva escribiendo un alta de UTI. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+    'alta-uti': `Sos un médico especialista en Terapia Intensiva escribiendo un alta de UTI. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin bloques de código, sin explicaciones — empezá la respuesta directo con { y terminá con }. El JSON debe tener exactamente estas claves:
 {
-  "Evolución": "resumen clínico del dictado e integrá los valores de laboratorio relevantes en prosa",
-  "Exámenes complementarios / Resultados patológicos": "solo estudios de imágenes — describí literalmente los informes de Sinclair, cardiólogo u otros estudios complementarios sin interpretación",
+  "Evolución": "resumen clínico del dictado. Si hay laboratorio, transcribilo literalmente con sus valores numéricos tal cual aparecen, sin interpretar ni calificar",
+  "Exámenes complementarios / Resultados patológicos": "solo estudios de imágenes — transcribí literalmente los informes de Sinclair, cardiólogo u otros estudios complementarios sin interpretación",
   "Tratamientos realizados": "tratamientos concretos realizados durante la internación",
   "Evolución / Intercurrencias / Tratamiento de las mismas": "intercurrencias y cómo se manejaron",
   "Diagnóstico/s de Egreso": "diagnósticos al alta",
   "Indicaciones de Egreso": "medicación y controles concretos"
 }
-REGLAS: Cada sección 1-2 oraciones concisas. Sin análisis académico. Sin opiniones. Si un campo no tiene datos poné "No refiere".`,
+REGLAS: Cada sección 1-2 oraciones concisas. Sin análisis académico. Sin opiniones ni calificativos sobre los valores. Si un campo no tiene datos poné "No refiere".`,
 
-    'alta-clinica': `Sos un médico clínico escribiendo un alta de clínica médica. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones. El JSON debe tener exactamente estas claves:
+    'alta-clinica': `Sos un médico clínico escribiendo un alta de clínica médica. Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin bloques de código, sin explicaciones — empezá la respuesta directo con { y terminá con }. El JSON debe tener exactamente estas claves:
 {
-  "Evolución": "resumen clínico del dictado e integrá los valores de laboratorio relevantes en prosa",
-  "Exámenes complementarios / Resultados patológicos": "solo estudios de imágenes — describí literalmente los informes de Sinclair, cardiólogo u otros estudios complementarios sin interpretación",
+  "Evolución": "resumen clínico del dictado. Si hay laboratorio, transcribilo literalmente con sus valores numéricos tal cual aparecen, sin interpretar ni calificar",
+  "Exámenes complementarios / Resultados patológicos": "solo estudios de imágenes — transcribí literalmente los informes de Sinclair, cardiólogo u otros estudios complementarios sin interpretación",
   "Tratamientos realizados": "tratamientos concretos realizados durante la internación",
   "Evolución / Intercurrencias / Tratamiento de las mismas": "intercurrencias y cómo se manejaron",
   "Diagnóstico/s de Egreso": "diagnósticos al alta",
   "Indicaciones de Egreso": "medicación y controles concretos"
 }
-REGLAS: Cada sección 1-2 oraciones concisas. Sin análisis académico. Sin opiniones. Si un campo no tiene datos poné "No refiere".`,
+REGLAS: Cada sección 1-2 oraciones concisas. Sin análisis académico. Sin opiniones ni calificativos sobre los valores. Si un campo no tiene datos poné "No refiere".`,
   }
 }
 
@@ -128,15 +128,21 @@ export async function POST(req: NextRequest) {
 
     const firma = FIRMAS[usuario] || FIRMAS['fernando']
     const PROMPTS = getPrompts(firma)
+    const seccionado = ES_SECCIONADO(tipo)
     const systemPrompt = PROMPTS[tipo] || PROMPTS['evolucion-clinica']
     const fecha = fechaParam || new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
     let userContent = `Fecha: ${fecha}\n\n`
     if (dictado) userContent += `DICTADO DEL MÉDICO:\n${dictado}\n\n`
-    if (textoLab) userContent += `LABORATORIO (integrá en Enfermedad actual o Evolución):\n${textoLab}\n\n`
-    if (textoImagenes) userContent += `IMÁGENES (poné en Exámenes Complementarios):\n${textoImagenes}\n\n`
+    if (textoLab) userContent += `LABORATORIO (transcribir literal, sin interpretar):\n${textoLab}\n\n`
+    if (textoImagenes) userContent += `IMÁGENES (poné en Exámenes Complementarios, transcribir literal):\n${textoImagenes}\n\n`
     if (fotos.length > 0) userContent += `[${fotos.length} foto(s) adjunta(s): monitor, respirador o informes]\n\n`
-    userContent += 'IMPORTANTE: Seguí estrictamente el formato JSON indicado. Sin análisis ni opiniones.'
+
+    if (seccionado) {
+      userContent += 'IMPORTANTE: Respondé solo con el objeto JSON, sin texto antes ni después, sin markdown. Transcribí los datos numéricos literalmente, sin interpretar ni calificar.'
+    } else {
+      userContent += 'IMPORTANTE: Respondé en prosa simple, sin JSON, sin markdown, sin bloques de código. Transcribí los datos numéricos literalmente, sin interpretar ni calificar.'
+    }
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) return NextResponse.json({ error: 'API key no configurada' }, { status: 500 })
@@ -174,7 +180,7 @@ export async function POST(req: NextRequest) {
 
     const cuerpo = data.content?.[0]?.text || ''
 
-    if (ES_SECCIONADO(tipo)) {
+    if (seccionado) {
       try {
         const clean = cuerpo.replace(/```json|```/g, '').trim()
         const secciones = JSON.parse(clean)
